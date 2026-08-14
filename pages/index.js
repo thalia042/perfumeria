@@ -1,19 +1,19 @@
-import Head from 'next/head';
-import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import Head from "next/head";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
 // 👇 CAMBIAR ACÁ: tu número de WhatsApp con código de país, sin espacios ni "+"
 // Ejemplo Argentina: "5492970123456"
-const WHATSAPP_NUMERO = '5490000000000';
+const WHATSAPP_NUMERO = "5490000000000";
 
-const FAVORITOS_KEY = 'perfumeria-favoritos';
+const FAVORITOS_KEY = "perfumeria-favoritos";
 
 const CATEGORIAS = [
-  { value: 'todas', label: 'Todas' },
-  { value: 'mujer', label: 'Mujer' },
-  { value: 'hombre', label: 'Hombre' },
-  { value: 'nina', label: 'Niña' },
-  { value: 'nino', label: 'Niño' },
+  { value: "todas", label: "Todas" },
+  { value: "mujer", label: "Mujer" },
+  { value: "hombre", label: "Hombre" },
+  { value: "nina", label: "Niña" },
+  { value: "nino", label: "Niño" },
 ];
 
 function Bottle() {
@@ -26,14 +26,28 @@ function Bottle() {
         fill="#6B1E3C"
         opacity="0.9"
       />
-      <rect x="10.5" y="16" width="9" height="6" fill="#F7EFE7" opacity="0.55" />
+      <rect
+        x="10.5"
+        y="16"
+        width="9"
+        height="6"
+        fill="#F7EFE7"
+        opacity="0.55"
+      />
     </svg>
   );
 }
 
 function Heart({ filled }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={filled ? '#6B1E3C' : 'none'} stroke={filled ? '#6B1E3C' : '#2B2320'} strokeWidth="2">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill={filled ? "#6B1E3C" : "none"}
+      stroke={filled ? "#6B1E3C" : "#2B2320"}
+      strokeWidth="2"
+    >
       <path d="M12 21s-7.5-4.6-10-9.2C.4 8.1 2 4.5 5.6 4c2-.3 3.8.7 4.9 2.3.4.6.9 1.4 1.5 2.3.6-.9 1.1-1.7 1.5-2.3C14.6 4.7 16.4 3.7 18.4 4c3.6.5 5.2 4.1 3.6 7.8C19.5 16.4 12 21 12 21z" />
     </svg>
   );
@@ -60,15 +74,23 @@ function FotosCarrusel({ fotos, nombre }) {
       <img src={lista[idx]} alt={nombre} />
       {lista.length > 1 && (
         <>
-          <button className="carrusel-arrow left" onClick={anterior} aria-label="Foto anterior">
+          <button
+            className="carrusel-arrow left"
+            onClick={anterior}
+            aria-label="Foto anterior"
+          >
             ‹
           </button>
-          <button className="carrusel-arrow right" onClick={siguiente} aria-label="Foto siguiente">
+          <button
+            className="carrusel-arrow right"
+            onClick={siguiente}
+            aria-label="Foto siguiente"
+          >
             ›
           </button>
           <div className="carrusel-dots">
             {lista.map((_, i) => (
-              <span key={i} className={`dot ${i === idx ? 'active' : ''}`} />
+              <span key={i} className={`dot ${i === idx ? "active" : ""}`} />
             ))}
           </div>
         </>
@@ -79,8 +101,8 @@ function FotosCarrusel({ fotos, nombre }) {
 
 export default function Home({ initialPerfumes }) {
   const [perfumes] = useState(initialPerfumes || []);
-  const [categoria, setCategoria] = useState('todas');
-  const [tamano, setTamano] = useState('todos');
+  const [categoria, setCategoria] = useState("todas");
+  const [tamano, setTamano] = useState("todos");
   const [soloPromos, setSoloPromos] = useState(false);
   const [favoritos, setFavoritos] = useState([]);
 
@@ -88,7 +110,7 @@ export default function Home({ initialPerfumes }) {
   useEffect(() => {
     try {
       const guardados = JSON.parse(
-        window.localStorage.getItem(FAVORITOS_KEY) || '[]'
+        window.localStorage.getItem(FAVORITOS_KEY) || "[]",
       );
       setFavoritos(guardados);
     } catch {
@@ -108,32 +130,32 @@ export default function Home({ initialPerfumes }) {
 
   const perfumesFavoritos = useMemo(
     () => perfumes.filter((p) => favoritos.includes(p.id)),
-    [perfumes, favoritos]
+    [perfumes, favoritos],
   );
 
   function enviarPorWhatsapp() {
     const lineas = perfumesFavoritos.map(
-      (p) => `• ${p.nombre} (${p.tamano}) - $${Number(p.precio).toLocaleString('es-AR')}`
+      (p) =>
+        `• ${p.nombre} (${p.tamano}) - $${Number(p.precio).toLocaleString("es-AR")}`,
     );
-    const mensaje =
-      `¡Hola! Vi el catálogo y me interesan estos perfumes:\n\n${lineas.join(
-        '\n'
-      )}\n\n¿Me los pueden guardar para pasar a retirar?`;
+    const mensaje = `¡Hola! Vi el catálogo y me interesan estos perfumes:\n\n${lineas.join(
+      "\n",
+    )}\n\n¿Me los pueden guardar para pasar a retirar?`;
     const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(
-      mensaje
+      mensaje,
     )}`;
-    window.open(url, '_blank');
+    window.open(url, "_blank");
   }
 
   const tamanos = useMemo(() => {
     const s = new Set(perfumes.map((p) => p.tamano).filter(Boolean));
-    return ['todos', ...Array.from(s)];
+    return ["todos", ...Array.from(s)];
   }, [perfumes]);
 
   const filtrados = useMemo(() => {
     return perfumes.filter((p) => {
-      const okCat = categoria === 'todas' || p.categoria === categoria;
-      const okTam = tamano === 'todos' || p.tamano === tamano;
+      const okCat = categoria === "todas" || p.categoria === categoria;
+      const okTam = tamano === "todos" || p.tamano === tamano;
       const okPromo = !soloPromos || p.en_promo;
       return okCat && okTam && okPromo;
     });
@@ -170,7 +192,7 @@ export default function Home({ initialPerfumes }) {
             {CATEGORIAS.map((c) => (
               <button
                 key={c.value}
-                className={`pill ${categoria === c.value ? 'active' : ''}`}
+                className={`pill ${categoria === c.value ? "active" : ""}`}
                 onClick={() => setCategoria(c.value)}
               >
                 {c.label}
@@ -182,16 +204,16 @@ export default function Home({ initialPerfumes }) {
             {tamanos.map((t) => (
               <button
                 key={t}
-                className={`pill ${tamano === t ? 'active' : ''}`}
+                className={`pill ${tamano === t ? "active" : ""}`}
                 onClick={() => setTamano(t)}
               >
-                {t === 'todos' ? 'Todos' : t}
+                {t === "todos" ? "Todos" : t}
               </button>
             ))}
           </div>
           <div className="filter-group">
             <button
-              className={`pill pill-promo ${soloPromos ? 'active' : ''}`}
+              className={`pill pill-promo ${soloPromos ? "active" : ""}`}
               onClick={() => setSoloPromos((v) => !v)}
             >
               🏷️ Solo promociones
@@ -201,7 +223,9 @@ export default function Home({ initialPerfumes }) {
 
         {filtrados.length === 0 ? (
           <div className="empty">
-            <div className="empty-title serif">No hay perfumes con este filtro</div>
+            <div className="empty-title serif">
+              No hay perfumes con este filtro
+            </div>
             <p>Probá con otra categoría o tamaño.</p>
           </div>
         ) : (
@@ -222,8 +246,8 @@ export default function Home({ initialPerfumes }) {
                     onClick={() => toggleFavorito(p.id)}
                     aria-label={
                       favoritos.includes(p.id)
-                        ? 'Quitar de favoritos'
-                        : 'Agregar a favoritos'
+                        ? "Quitar de favoritos"
+                        : "Agregar a favoritos"
                     }
                   >
                     <Heart filled={favoritos.includes(p.id)} />
@@ -234,16 +258,14 @@ export default function Home({ initialPerfumes }) {
                   <div className="card-meta">
                     <span>{p.tamano}</span>
                     <span className="card-dot" />
-                    <span>{p.marca || 'Sin marca'}</span>
+                    <span>{p.marca || "Sin marca"}</span>
                   </div>
                   <div className="card-footer">
                     <span className="card-price">
-                      ${Number(p.precio).toLocaleString('es-AR')}
+                      ${Number(p.precio).toLocaleString("es-AR")}
                     </span>
-                    <span
-                      className={`card-stock ${!p.en_stock ? 'out' : ''}`}
-                    >
-                      {p.en_stock ? '● Disponible' : '● Sin stock'}
+                    <span className={`card-stock ${!p.en_stock ? "out" : ""}`}>
+                      {p.en_stock ? "● Disponible" : "● Sin stock"}
                     </span>
                   </div>
                 </div>
@@ -264,8 +286,8 @@ export default function Home({ initialPerfumes }) {
         <div className="fav-bar">
           <div className="container fav-bar-inner">
             <span className="fav-count">
-              <Heart filled /> {perfumesFavoritos.length}{' '}
-              {perfumesFavoritos.length === 1 ? 'favorito' : 'favoritos'}
+              <Heart filled /> {perfumesFavoritos.length}{" "}
+              {perfumesFavoritos.length === 1 ? "favorito" : "favoritos"}
             </span>
             <button className="btn btn-primary" onClick={enviarPorWhatsapp}>
               Enviar mi lista por WhatsApp
@@ -279,9 +301,9 @@ export default function Home({ initialPerfumes }) {
 
 export async function getServerSideProps() {
   const { data, error } = await supabase
-    .from('perfumes')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .from("perfumes")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   return {
     props: {
