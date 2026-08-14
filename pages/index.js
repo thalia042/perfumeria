@@ -175,12 +175,14 @@ export default function Home({ initialPerfumes }) {
         <div className="container">
           <div className="header-mark">
             <Bottle />
-            <span className="header-eyebrow">Disponible para retirar</span>
+            <span className="header-eyebrow">
+              Disponible para retirar al momento
+            </span>
           </div>
           <h1 className="header-title serif">Catálogo de Perfumes</h1>
           <p className="header-sub">
-            Elegí por categoría y tamaño. Cada frasco que ves acá está
-            disponible ahora mismo en el local — vení a retirarlo.
+            Elegí por categoría y tamaño. Cada perfume se encuentra disponible
+            en el local BlanquitaIndumentaria.
           </p>
         </div>
       </header>
@@ -277,7 +279,6 @@ export default function Home({ initialPerfumes }) {
 
       <footer className="footer">
         <div className="container footer">
-          <span>Catálogo actualizado en tiempo real.</span>
           <a href="/admin/login">Panel de administración</a>
         </div>
       </footer>
