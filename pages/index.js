@@ -181,8 +181,8 @@ export default function Home({ initialPerfumes }) {
           </div>
           <h1 className="header-title serif">Catálogo de Perfumes</h1>
           <p className="header-sub">
-            Elegí por categoría y tamaño. Cada perfume se encuentra disponible
-            en el local BlanquitaIndumentaria.
+            Cada perfume se encuentra disponible en el local
+            BlanquitaIndumentaria.
           </p>
         </div>
       </header>

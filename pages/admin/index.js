@@ -1,24 +1,24 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/router';
-import Head from 'next/head';
-import { supabase } from '../../lib/supabaseClient';
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/router";
+import Head from "next/head";
+import { supabase } from "../../lib/supabaseClient";
 
 const CATEGORIAS = [
-  { value: 'mujer', label: 'Mujer' },
-  { value: 'hombre', label: 'Hombre' },
-  { value: 'nina', label: 'Niña' },
-  { value: 'nino', label: 'Niño' },
+  { value: "mujer", label: "Mujer" },
+  { value: "hombre", label: "Hombre" },
+  { value: "nina", label: "Niña" },
+  { value: "nino", label: "Niño" },
 ];
 
-const TAMANOS = ['15ml', '30ml', '50ml', '75ml', '100ml', '150ml'];
+const TAMANOS = ["15ml", "30ml", "50ml", "75ml", "100ml", "150ml"];
 
 const FORM_VACIO = {
   id: null,
-  nombre: '',
-  marca: '',
-  precio: '',
-  categoria: 'mujer',
-  tamano: '30ml',
+  nombre: "",
+  marca: "",
+  precio: "",
+  categoria: "mujer",
+  tamano: "30ml",
   en_stock: true,
   en_promo: false,
   fotos: [],
@@ -31,12 +31,12 @@ export default function Admin() {
   const [form, setForm] = useState(FORM_VACIO);
   const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
-        router.replace('/admin/login');
+        router.replace("/admin/login");
       } else {
         setChecking(false);
         cargarPerfumes();
@@ -46,21 +46,21 @@ export default function Admin() {
 
   const cargarPerfumes = useCallback(async () => {
     const { data, error: fetchError } = await supabase
-      .from('perfumes')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .from("perfumes")
+      .select("*")
+      .order("created_at", { ascending: false });
     if (!fetchError) setPerfumes(data);
   }, []);
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.replace('/admin/login');
+    router.replace("/admin/login");
   }
 
   function editar(p) {
     setForm(p);
     setFiles([]);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function nuevo() {
@@ -69,8 +69,8 @@ export default function Admin() {
   }
 
   async function eliminar(id) {
-    if (!confirm('¿Borrar este perfume del catálogo?')) return;
-    await supabase.from('perfumes').delete().eq('id', id);
+    if (!confirm("¿Borrar este perfume del catálogo?")) return;
+    await supabase.from("perfumes").delete().eq("id", id);
     cargarPerfumes();
   }
 
@@ -84,7 +84,7 @@ export default function Admin() {
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
-    setError('');
+    setError("");
 
     try {
       let fotos = form.fotos || [];
@@ -92,16 +92,16 @@ export default function Admin() {
       if (files.length > 0) {
         const urlsNuevas = [];
         for (const f of files) {
-          const ext = f.name.split('.').pop();
+          const ext = f.name.split(".").pop();
           const path = `${Date.now()}-${Math.random()
             .toString(36)
             .slice(2)}.${ext}`;
           const { error: uploadError } = await supabase.storage
-            .from('perfumes-fotos')
+            .from("perfumes-fotos")
             .upload(path, f);
           if (uploadError) throw uploadError;
           const { data: pub } = supabase.storage
-            .from('perfumes-fotos')
+            .from("perfumes-fotos")
             .getPublicUrl(path);
           urlsNuevas.push(pub.publicUrl);
         }
@@ -123,13 +123,13 @@ export default function Admin() {
 
       if (form.id) {
         const { error: updateError } = await supabase
-          .from('perfumes')
+          .from("perfumes")
           .update(payload)
-          .eq('id', form.id);
+          .eq("id", form.id);
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase
-          .from('perfumes')
+          .from("perfumes")
           .insert(payload);
         if (insertError) throw insertError;
       }
@@ -137,7 +137,7 @@ export default function Admin() {
       nuevo();
       cargarPerfumes();
     } catch (err) {
-      setError(err.message || 'Algo salió mal, probá de nuevo.');
+      setError(err.message || "Algo salió mal, probá de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -154,8 +154,13 @@ export default function Admin() {
       <div className="admin-header">
         <div className="container">
           <span className="admin-title serif">Panel de Perfumería</span>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <a className="btn btn-ghost btn-sm" href="/" target="_blank" rel="noreferrer">
+          <div style={{ display: "flex", gap: 10 }}>
+            <a
+              className="btn btn-ghost btn-sm"
+              href="/"
+              target="_blank"
+              rel="noreferrer"
+            >
               Ver catálogo público
             </a>
             <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
@@ -169,7 +174,7 @@ export default function Admin() {
         <div className="container admin-grid">
           <div className="panel">
             <div className="panel-title">
-              {form.id ? 'Editar perfume' : 'Agregar perfume'}
+              {form.id ? "Editar perfume" : "Agregar perfume"}
             </div>
             {error && <div className="error">{error}</div>}
             <form onSubmit={handleSubmit}>
@@ -177,9 +182,7 @@ export default function Admin() {
                 <label>Nombre</label>
                 <input
                   value={form.nombre}
-                  onChange={(e) =>
-                    setForm({ ...form, nombre: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, nombre: e.target.value })}
                   required
                 />
               </div>
@@ -187,9 +190,7 @@ export default function Admin() {
                 <label>Marca</label>
                 <input
                   value={form.marca}
-                  onChange={(e) =>
-                    setForm({ ...form, marca: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, marca: e.target.value })}
                 />
               </div>
               <div className="field-row">
@@ -206,19 +207,22 @@ export default function Admin() {
                   />
                 </div>
                 <div className="field">
-                  <label>Tamaño</label>
-                  <select
+                  <label>Tamaño (ml)</label>
+                  <input
+                    type="text"
+                    list="tamanos-sugeridos"
+                    placeholder="ej. 30ml, 45ml, 80ml"
                     value={form.tamano}
                     onChange={(e) =>
                       setForm({ ...form, tamano: e.target.value })
                     }
-                  >
+                    required
+                  />
+                  <datalist id="tamanos-sugeridos">
                     {TAMANOS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
+                      <option key={t} value={t} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
               </div>
               <div className="field">
@@ -246,13 +250,20 @@ export default function Admin() {
                 />
                 <div className="hint">
                   {form.id
-                    ? 'Las fotos nuevas se agregan a las que ya tenía.'
-                    : 'Seleccioná varias fotos con Ctrl (o Cmd en Mac) para subir más de una.'}
+                    ? "Las fotos nuevas se agregan a las que ya tenía."
+                    : "Seleccioná varias fotos con Ctrl (o Cmd en Mac) para subir más de una."}
                 </div>
                 {form.fotos && form.fotos.length > 0 && (
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 6,
+                      marginTop: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
                     {form.fotos.map((url) => (
-                      <div key={url} style={{ position: 'relative' }}>
+                      <div key={url} style={{ position: "relative" }}>
                         <img src={url} alt="" className="thumb" />
                         <button
                           type="button"
@@ -292,19 +303,19 @@ export default function Admin() {
                 </label>
               </div>
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
                 <button className="btn btn-primary" disabled={saving}>
                   {saving
-                    ? 'Guardando…'
+                    ? "Guardando…"
                     : form.id
-                    ? 'Guardar cambios'
-                    : 'Agregar al catálogo'}
+                      ? "Guardar cambios"
+                      : "Agregar al catálogo"}
                 </button>
                 {form.id && (
                   <button
                     type="button"
                     className="btn btn-ghost"
-                    style={{ borderColor: '#ddd', color: '#6b5f57' }}
+                    style={{ borderColor: "#ddd", color: "#6b5f57" }}
                     onClick={nuevo}
                   >
                     Cancelar
@@ -338,23 +349,23 @@ export default function Admin() {
                     </td>
                     <td>
                       <strong>{p.nombre}</strong>
-                      <div style={{ fontSize: 11, color: '#6b5f57' }}>
+                      <div style={{ fontSize: 11, color: "#6b5f57" }}>
                         {p.marca}
                       </div>
                     </td>
                     <td>
-                      {CATEGORIAS.find((c) => c.value === p.categoria)
-                        ?.label || p.categoria}
+                      {CATEGORIAS.find((c) => c.value === p.categoria)?.label ||
+                        p.categoria}
                     </td>
                     <td>{p.tamano}</td>
-                    <td>${Number(p.precio).toLocaleString('es-AR')}</td>
-                    <td>{p.en_promo ? '🏷️' : '—'}</td>
-                    <td>{p.en_stock ? '✅' : '—'}</td>
+                    <td>${Number(p.precio).toLocaleString("es-AR")}</td>
+                    <td>{p.en_promo ? "🏷️" : "—"}</td>
+                    <td>{p.en_stock ? "✅" : "—"}</td>
                     <td>
                       <div className="row-actions">
                         <button
                           className="btn btn-ghost btn-sm"
-                          style={{ borderColor: '#ddd', color: '#2b2320' }}
+                          style={{ borderColor: "#ddd", color: "#2b2320" }}
                           onClick={() => editar(p)}
                         >
                           Editar
@@ -371,7 +382,10 @@ export default function Admin() {
                 ))}
                 {perfumes.length === 0 && (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: 30 }}>
+                    <td
+                      colSpan={8}
+                      style={{ textAlign: "center", padding: 30 }}
+                    >
                       Todavía no cargaste ningún perfume.
                     </td>
                   </tr>
