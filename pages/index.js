@@ -279,6 +279,7 @@ export default function Home({ initialPerfumes }) {
 
       <footer className="footer">
         <div className="container footer">
+          <p>Comodoro Rivadavia</p>
           <a href="/admin/login">Panel de administración</a>
         </div>
       </footer>
