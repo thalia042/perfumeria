@@ -20,7 +20,8 @@ const FORM_VACIO = {
   categoria: 'mujer',
   tamano: '30ml',
   en_stock: true,
-  foto_url: '',
+  en_promo: false,
+  fotos: [],
 };
 
 export default function Admin() {
@@ -28,7 +29,7 @@ export default function Admin() {
   const [checking, setChecking] = useState(true);
   const [perfumes, setPerfumes] = useState([]);
   const [form, setForm] = useState(FORM_VACIO);
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -58,13 +59,13 @@ export default function Admin() {
 
   function editar(p) {
     setForm(p);
-    setFile(null);
+    setFiles([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function nuevo() {
     setForm(FORM_VACIO);
-    setFile(null);
+    setFiles([]);
   }
 
   async function eliminar(id) {
@@ -73,27 +74,39 @@ export default function Admin() {
     cargarPerfumes();
   }
 
+  function quitarFotoExistente(url) {
+    setForm({
+      ...form,
+      fotos: (form.fotos || []).filter((f) => f !== url),
+    });
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setError('');
 
     try {
-      let foto_url = form.foto_url;
+      let fotos = form.fotos || [];
 
-      if (file) {
-        const ext = file.name.split('.').pop();
-        const path = `${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('perfumes-fotos')
-          .upload(path, file);
-        if (uploadError) throw uploadError;
-        const { data: pub } = supabase.storage
-          .from('perfumes-fotos')
-          .getPublicUrl(path);
-        foto_url = pub.publicUrl;
+      if (files.length > 0) {
+        const urlsNuevas = [];
+        for (const f of files) {
+          const ext = f.name.split('.').pop();
+          const path = `${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2)}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from('perfumes-fotos')
+            .upload(path, f);
+          if (uploadError) throw uploadError;
+          const { data: pub } = supabase.storage
+            .from('perfumes-fotos')
+            .getPublicUrl(path);
+          urlsNuevas.push(pub.publicUrl);
+        }
+        // Las fotos nuevas se agregan a las que ya tenía (si era edición)
+        fotos = [...fotos, ...urlsNuevas];
       }
 
       const payload = {
@@ -103,7 +116,9 @@ export default function Admin() {
         categoria: form.categoria,
         tamano: form.tamano,
         en_stock: form.en_stock,
-        foto_url,
+        en_promo: form.en_promo,
+        fotos,
+        foto_url: fotos[0] || null,
       };
 
       if (form.id) {
@@ -222,20 +237,47 @@ export default function Admin() {
                 </select>
               </div>
               <div className="field">
-                <label>Foto</label>
+                <label>Fotos (podés elegir 2 o más juntas)</label>
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setFile(e.target.files[0])}
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files))}
                 />
-                {form.foto_url && !file && (
-                  <img
-                    src={form.foto_url}
-                    alt=""
-                    className="thumb"
-                    style={{ marginTop: 8 }}
-                  />
+                <div className="hint">
+                  {form.id
+                    ? 'Las fotos nuevas se agregan a las que ya tenía.'
+                    : 'Seleccioná varias fotos con Ctrl (o Cmd en Mac) para subir más de una.'}
+                </div>
+                {form.fotos && form.fotos.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                    {form.fotos.map((url) => (
+                      <div key={url} style={{ position: 'relative' }}>
+                        <img src={url} alt="" className="thumb" />
+                        <button
+                          type="button"
+                          onClick={() => quitarFotoExistente(url)}
+                          className="thumb-remove"
+                          aria-label="Quitar foto"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
+              </div>
+              <div className="field">
+                <label className="stock-toggle">
+                  <input
+                    type="checkbox"
+                    checked={form.en_promo}
+                    onChange={(e) =>
+                      setForm({ ...form, en_promo: e.target.checked })
+                    }
+                  />
+                  Está en promoción 🏷️
+                </label>
               </div>
               <div className="field">
                 <label className="stock-toggle">
@@ -281,6 +323,7 @@ export default function Admin() {
                   <th>Categoría</th>
                   <th>Tamaño</th>
                   <th>Precio</th>
+                  <th>Promo</th>
                   <th>Stock</th>
                   <th></th>
                 </tr>
@@ -289,8 +332,8 @@ export default function Admin() {
                 {perfumes.map((p) => (
                   <tr key={p.id}>
                     <td>
-                      {p.foto_url && (
-                        <img src={p.foto_url} className="thumb" alt="" />
+                      {p.fotos && p.fotos[0] && (
+                        <img src={p.fotos[0]} className="thumb" alt="" />
                       )}
                     </td>
                     <td>
@@ -305,6 +348,7 @@ export default function Admin() {
                     </td>
                     <td>{p.tamano}</td>
                     <td>${Number(p.precio).toLocaleString('es-AR')}</td>
+                    <td>{p.en_promo ? '🏷️' : '—'}</td>
                     <td>{p.en_stock ? '✅' : '—'}</td>
                     <td>
                       <div className="row-actions">
@@ -327,7 +371,7 @@ export default function Admin() {
                 ))}
                 {perfumes.length === 0 && (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 30 }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: 30 }}>
                       Todavía no cargaste ningún perfume.
                     </td>
                   </tr>

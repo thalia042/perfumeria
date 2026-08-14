@@ -244,6 +244,147 @@ button {
   color: #a14b3b;
 }
 
+.card-badge-promo {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  margin-top: 26px;
+  background: var(--gold);
+  color: var(--charcoal);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.carrusel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(43, 35, 32, 0.55);
+  color: var(--white);
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.card-photo:hover .carrusel-arrow {
+  opacity: 1;
+}
+
+.carrusel-arrow.left {
+  left: 8px;
+}
+
+.carrusel-arrow.right {
+  right: 8px;
+}
+
+.carrusel-dots {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+
+.carrusel-dots .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.carrusel-dots .dot.active {
+  background: var(--white);
+  width: 14px;
+  border-radius: 3px;
+}
+
+.pill-promo.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--charcoal);
+}
+
+.thumb-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bordeaux);
+  color: var(--white);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fav-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 253, 251, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(43, 35, 32, 0.18);
+  transition: transform 0.12s ease;
+}
+
+.fav-btn:hover {
+  transform: scale(1.08);
+}
+
+.fav-bar {
+  position: sticky;
+  bottom: 0;
+  background: var(--charcoal);
+  border-top: 1px solid rgba(247, 239, 231, 0.15);
+  padding: 14px 0;
+  z-index: 20;
+}
+
+.fav-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.fav-count {
+  color: var(--ivory);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .empty {
   text-align: center;
   padding: 80px 20px;
