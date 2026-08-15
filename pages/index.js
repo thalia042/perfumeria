@@ -2,16 +2,25 @@ import Head from "next/head";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
+// 👇 CAMBIAR ACÁ: tu número de WhatsApp con código de país, sin espacios ni "+"
+// Ejemplo Argentina: "5492970123456"
 const WHATSAPP_NUMERO = "5492974437221";
 
 const FAVORITOS_KEY = "perfumeria-favoritos";
+
+function normalizarTexto(str) {
+  return (str || "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 
 const CATEGORIAS = [
   { value: "todas", label: "Todas" },
   { value: "mujer", label: "Mujer" },
   { value: "hombre", label: "Hombre" },
-  { value: "nina", label: "Niña" },
-  { value: "nino", label: "Niño" },
+  { value: "infantil", label: "Infantil" },
 ];
 
 function Bottle() {
@@ -98,11 +107,26 @@ function FotosCarrusel({ fotos, nombre }) {
 }
 
 export default function Home({ initialPerfumes }) {
-  const [perfumes] = useState(initialPerfumes || []);
+  const [perfumes, setPerfumes] = useState(initialPerfumes || []);
   const [categoria, setCategoria] = useState("todas");
   const [tamano, setTamano] = useState("todos");
   const [soloPromos, setSoloPromos] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [orden, setOrden] = useState("nuevos");
   const [favoritos, setFavoritos] = useState([]);
+
+  // Revisa cada 30 segundos si hay perfumes nuevos/editados, sin que
+  // el cliente tenga que recargar la página manualmente.
+  useEffect(() => {
+    const intervalo = setInterval(async () => {
+      const { data, error } = await supabase
+        .from("perfumes")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (!error && data) setPerfumes(data);
+    }, 30000);
+    return () => clearInterval(intervalo);
+  }, []);
 
   // Carga los favoritos guardados en este navegador (si volvió otro día)
   useEffect(() => {
@@ -134,7 +158,7 @@ export default function Home({ initialPerfumes }) {
   function enviarPorWhatsapp() {
     const lineas = perfumesFavoritos.map(
       (p) =>
-        `• ${p.nombre} (${p.tamano}) - $${Number(p.precio).toLocaleString("es-AR")}`,
+        `• ${p.codigo ? `[${p.codigo}] ` : ""}${p.nombre} (${p.tamano}) - $${Number(p.precio).toLocaleString("es-AR")}`,
     );
     const mensaje = `¡Hola! Vi el catálogo y me interesan estos perfumes:\n\n${lineas.join(
       "\n",
@@ -151,13 +175,28 @@ export default function Home({ initialPerfumes }) {
   }, [perfumes]);
 
   const filtrados = useMemo(() => {
-    return perfumes.filter((p) => {
+    const lista = perfumes.filter((p) => {
       const okCat = categoria === "todas" || p.categoria === categoria;
       const okTam = tamano === "todos" || p.tamano === tamano;
       const okPromo = !soloPromos || p.en_promo;
-      return okCat && okTam && okPromo;
+      const okBusqueda =
+        !busqueda.trim() ||
+        normalizarTexto(p.nombre).includes(normalizarTexto(busqueda)) ||
+        normalizarTexto(p.marca).includes(normalizarTexto(busqueda)) ||
+        normalizarTexto(p.codigo).includes(normalizarTexto(busqueda));
+      return okCat && okTam && okPromo && okBusqueda;
     });
-  }, [perfumes, categoria, tamano, soloPromos]);
+
+    const ordenada = [...lista];
+    if (orden === "precio_asc") {
+      ordenada.sort((a, b) => Number(a.precio) - Number(b.precio));
+    } else if (orden === "precio_desc") {
+      ordenada.sort((a, b) => Number(b.precio) - Number(a.precio));
+    } else {
+      ordenada.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+    return ordenada;
+  }, [perfumes, categoria, tamano, soloPromos, busqueda, orden]);
 
   return (
     <div className="page">
@@ -186,6 +225,24 @@ export default function Home({ initialPerfumes }) {
       </header>
 
       <div className="container">
+        <div className="search-bar">
+          <input
+            type="text"
+            placeholder="Buscar perfume por nombre o marca…"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="search-input-public"
+          />
+          <select
+            className="orden-select"
+            value={orden}
+            onChange={(e) => setOrden(e.target.value)}
+          >
+            <option value="nuevos">Más nuevos primero</option>
+            <option value="precio_asc">Precio: menor a mayor</option>
+            <option value="precio_desc">Precio: mayor a menor</option>
+          </select>
+        </div>
         <div className="filters">
           <div className="filter-group">
             <span className="filter-label">Categoría</span>
@@ -240,6 +297,9 @@ export default function Home({ initialPerfumes }) {
                   </span>
                   {p.en_promo && (
                     <span className="card-badge-promo">🏷️ Promo</span>
+                  )}
+                  {p.codigo && (
+                    <span className="card-codigo-bubble">{p.codigo}</span>
                   )}
                   <button
                     className="fav-btn"
