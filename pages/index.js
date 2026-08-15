@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabaseClient";
 
 // 👇 CAMBIAR ACÁ: tu número de WhatsApp con código de país, sin espacios ni "+"
 // Ejemplo Argentina: "5492970123456"
-const WHATSAPP_NUMERO = "5490000000000";
+const WHATSAPP_NUMERO = "5492974437221";
 
 const FAVORITOS_KEY = "perfumeria-favoritos";
 
@@ -193,9 +193,7 @@ export default function Home({ initialPerfumes }) {
     } else if (orden === "precio_desc") {
       ordenada.sort((a, b) => Number(b.precio) - Number(a.precio));
     } else {
-      ordenada.sort(
-        (a, b) => new Date(b.created_at) - new Date(a.created_at)
-      );
+      ordenada.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
     return ordenada;
   }, [perfumes, categoria, tamano, soloPromos, busqueda, orden]);
@@ -330,7 +328,9 @@ export default function Home({ initialPerfumes }) {
                       <span className="card-discount-badge">
                         -
                         {Math.round(
-                          100 - (Number(p.precio) / Number(p.precio_anterior)) * 100
+                          100 -
+                            (Number(p.precio) / Number(p.precio_anterior)) *
+                              100,
                         )}
                         %
                       </span>
