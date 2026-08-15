@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { supabase } from '../../lib/supabaseClient';
@@ -44,6 +44,31 @@ function normalizarTexto(str) {
     .toLowerCase();
 }
 
+// Busca códigos con el patrón LETRAS+NÚMEROS (ej. C004) y calcula
+// el último usado y el siguiente sugerido, respetando los ceros a la
+// izquierda (C004 -> C005, no C5).
+function calcularSiguienteCodigo(perfumes) {
+  const regex = /^([A-Za-z]*)(\d+)$/;
+  let mejor = null;
+
+  perfumes.forEach((p) => {
+    const m = (p.codigo || '').trim().match(regex);
+    if (!m) return;
+    const numero = parseInt(m[2], 10);
+    if (!mejor || numero > mejor.numero) {
+      mejor = { prefijo: m[1], numero, digitos: m[2].length, texto: p.codigo };
+    }
+  });
+
+  if (!mejor) return null;
+
+  const siguienteNum = String(mejor.numero + 1).padStart(mejor.digitos, '0');
+  return {
+    ultimo: mejor.texto,
+    sugerido: `${mejor.prefijo}${siguienteNum}`,
+  };
+}
+
 export default function Admin() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
@@ -54,6 +79,12 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [ordenarPorVencimiento, setOrdenarPorVencimiento] = useState(false);
+  const [ordenarPorCodigo, setOrdenarPorCodigo] = useState(false);
+
+  const siguienteCodigo = useMemo(
+    () => calcularSiguienteCodigo(perfumes),
+    [perfumes]
+  );
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -182,10 +213,17 @@ export default function Admin() {
       );
     })
     .sort((a, b) => {
-      if (!ordenarPorVencimiento) return 0;
-      if (!a.vencimiento) return 1;
-      if (!b.vencimiento) return -1;
-      return new Date(a.vencimiento) - new Date(b.vencimiento);
+      if (ordenarPorCodigo) {
+        if (!a.codigo) return 1;
+        if (!b.codigo) return -1;
+        return a.codigo.localeCompare(b.codigo, 'es', { numeric: true });
+      }
+      if (ordenarPorVencimiento) {
+        if (!a.vencimiento) return 1;
+        if (!b.vencimiento) return -1;
+        return new Date(a.vencimiento) - new Date(b.vencimiento);
+      }
+      return 0;
     });
 
   return (
@@ -225,6 +263,21 @@ export default function Admin() {
                   }
                   placeholder="ej. P001"
                 />
+                {siguienteCodigo && (
+                  <div className="codigo-hint">
+                    Último usado: <strong>{siguienteCodigo.ultimo}</strong>
+                    {' · '}
+                    <button
+                      type="button"
+                      className="codigo-hint-btn"
+                      onClick={() =>
+                        setForm({ ...form, codigo: siguienteCodigo.sugerido })
+                      }
+                    >
+                      Usar {siguienteCodigo.sugerido}
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="field">
                 <label>Nombre</label>
@@ -403,9 +456,21 @@ export default function Admin() {
               />
               <button
                 className={`pill ${ordenarPorVencimiento ? 'active' : ''}`}
-                onClick={() => setOrdenarPorVencimiento((v) => !v)}
+                onClick={() => {
+                  setOrdenarPorVencimiento((v) => !v);
+                  setOrdenarPorCodigo(false);
+                }}
               >
                 Ordenar por vencimiento
+              </button>
+              <button
+                className={`pill ${ordenarPorCodigo ? 'active' : ''}`}
+                onClick={() => {
+                  setOrdenarPorCodigo((v) => !v);
+                  setOrdenarPorVencimiento(false);
+                }}
+              >
+                Ordenar por código
               </button>
             </div>
             <table>

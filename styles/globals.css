@@ -586,6 +586,23 @@ button {
   color: var(--charcoal-soft);
 }
 
+.codigo-hint {
+  font-size: 12px;
+  color: var(--charcoal-soft);
+  margin-top: 6px;
+}
+
+.codigo-hint-btn {
+  background: none;
+  border: none;
+  color: var(--bordeaux);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
 .codigo-bubble {
   display: inline-block;
   background: var(--charcoal);
