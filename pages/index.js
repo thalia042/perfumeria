@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabaseClient";
 
 // 👇 CAMBIAR ACÁ: tu número de WhatsApp con código de país, sin espacios ni "+"
 // Ejemplo Argentina: "5492970123456"
-const WHATSAPP_NUMERO = "5492974437221";
+const WHATSAPP_NUMERO = "5490000000000";
 
 const FAVORITOS_KEY = "perfumeria-favoritos";
 
@@ -193,7 +193,9 @@ export default function Home({ initialPerfumes }) {
     } else if (orden === "precio_desc") {
       ordenada.sort((a, b) => Number(b.precio) - Number(a.precio));
     } else {
-      ordenada.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      ordenada.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
     }
     return ordenada;
   }, [perfumes, categoria, tamano, soloPromos, busqueda, orden]);
@@ -320,6 +322,20 @@ export default function Home({ initialPerfumes }) {
                     <span className="card-dot" />
                     <span>{p.marca || "Sin marca"}</span>
                   </div>
+                  {p.en_promo && p.precio_anterior > p.precio && (
+                    <div className="card-descuento-row">
+                      <span className="card-price-old">
+                        ${Number(p.precio_anterior).toLocaleString("es-AR")}
+                      </span>
+                      <span className="card-discount-badge">
+                        -
+                        {Math.round(
+                          100 - (Number(p.precio) / Number(p.precio_anterior)) * 100
+                        )}
+                        %
+                      </span>
+                    </div>
+                  )}
                   <div className="card-footer">
                     <span className="card-price">
                       ${Number(p.precio).toLocaleString("es-AR")}

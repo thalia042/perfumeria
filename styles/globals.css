@@ -258,6 +258,28 @@ button {
   background: var(--charcoal-soft);
 }
 
+.card-descuento-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.card-price-old {
+  font-size: 13px;
+  color: var(--charcoal-soft);
+  text-decoration: line-through;
+}
+
+.card-discount-badge {
+  background: #fbe0dc;
+  color: #a14b3b;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
 .card-footer {
   margin-top: auto;
   padding-top: 10px;

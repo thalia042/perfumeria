@@ -16,6 +16,7 @@ const FORM_VACIO = {
   nombre: '',
   marca: '',
   precio: '',
+  precio_anterior: '',
   categoria: 'mujer',
   tamano: '30ml',
   en_stock: true,
@@ -111,7 +112,11 @@ export default function Admin() {
   }
 
   function editar(p) {
-    setForm({ ...p, cantidad_stock: p.cantidad_stock ?? '' });
+    setForm({
+      ...p,
+      cantidad_stock: p.cantidad_stock ?? '',
+      precio_anterior: p.precio_anterior ?? '',
+    });
     setFiles([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -166,6 +171,10 @@ export default function Admin() {
         nombre: form.nombre,
         marca: form.marca,
         precio: Number(form.precio),
+        precio_anterior:
+          form.en_promo && form.precio_anterior
+            ? Number(form.precio_anterior)
+            : null,
         categoria: form.categoria,
         tamano: form.tamano,
         en_stock: form.en_stock,
@@ -397,6 +406,32 @@ export default function Admin() {
                   />
                   Está en promoción 🏷️
                 </label>
+                {form.en_promo && (
+                  <div style={{ marginTop: 10 }}>
+                    <label>Precio anterior (se muestra tachado)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.precio_anterior}
+                      onChange={(e) =>
+                        setForm({ ...form, precio_anterior: e.target.value })
+                      }
+                      placeholder="ej. 39990"
+                    />
+                    {form.precio && form.precio_anterior > 0 && (
+                      <div className="hint">
+                        Descuento:{' '}
+                        {Math.round(
+                          100 -
+                            (Number(form.precio) /
+                              Number(form.precio_anterior)) *
+                              100
+                        )}
+                        %
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="field">
                 <label>Cantidad en stock (opcional, solo para vos)</label>
