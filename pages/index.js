@@ -2,9 +2,7 @@ import Head from "next/head";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-// 👇 CAMBIAR ACÁ: tu número de WhatsApp con código de país, sin espacios ni "+"
-// Ejemplo Argentina: "5492970123456"
-const WHATSAPP_NUMERO = "5490000000000";
+const WHATSAPP_NUMERO = "5492974437221";
 
 const FAVORITOS_KEY = "perfumeria-favoritos";
 
