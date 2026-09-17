@@ -1,54 +1,83 @@
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/router";
 import Head from "next/head";
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
-const WHATSAPP_NUMERO = "5490000000000";
-const FAVORITOS_KEY = "catalogo-favoritos";
-
-const SECCIONES = [
-  {
-    id: "perfumeria",
-    nombre: "Perfumería",
-    descripcion: "Fragancias para mujer, hombre e infantil",
-  },
-  {
-    id: "natura",
-    nombre: "Natura",
-    descripcion: "Líneas de cuidado diario, repuestos y perfumería",
-  },
-  {
-    id: "avon",
-    nombre: "Avon",
-    descripcion: "Cosmética, fragancias y cuidado de la piel",
-  },
-  {
-    id: "joyeria",
-    nombre: "Joyería",
-    descripcion: "Aros, collares y accesorios de acero",
-  },
+const SECCIONES_DISPONIBLES = [
+  { id: "perfumeria", label: "Perfumería" },
+  { id: "natura", label: "Natura" },
+  { id: "avon", label: "Avon" },
+  { id: "joyeria", label: "Joyería" },
 ];
 
-const LABELS_TIPO = {
-  perfume: "Perfume",
-  body_splash: "Body Splash",
-  crema: "Crema",
-  jabon: "Jabón",
-  maquillaje: "Maquillaje",
-  desodorante: "Desodorante",
-  aros: "Aros",
-  collar: "Collar",
-  pulsera: "Pulsera",
-  anillo: "Anillo",
-  dije: "Dije",
-};
-
 const CATEGORIAS = [
-  { value: "todas", label: "Todas" },
+  { value: "", label: "Sin género" },
   { value: "mujer", label: "Mujer" },
   { value: "hombre", label: "Hombre" },
   { value: "infantil", label: "Infantil" },
   { value: "unisex", label: "Unisex" },
 ];
+
+const TIPOS_POR_SECCION = {
+  perfumeria: [
+    { value: "perfume", label: "Perfume" },
+    { value: "body_splash", label: "Body Splash" },
+  ],
+  natura: [
+    { value: "crema", label: "Crema" },
+    { value: "jabon", label: "Jabón" },
+    { value: "desodorante", label: "Desodorante" },
+    { value: "perfume", label: "Perfume" },
+    { value: "body_splash", label: "Body Splash" },
+    { value: "maquillaje", label: "Maquillaje" },
+  ],
+  avon: [
+    { value: "crema", label: "Crema" },
+    { value: "maquillaje", label: "Maquillaje" },
+    { value: "perfume", label: "Perfume" },
+    { value: "desodorante", label: "Desodorante" },
+    { value: "jabon", label: "Jabón" },
+  ],
+  joyeria: [
+    { value: "aros", label: "Aros" },
+    { value: "collar", label: "Collar" },
+    { value: "pulsera", label: "Pulsera" },
+    { value: "anillo", label: "Anillo" },
+    { value: "dije", label: "Dije" },
+  ],
+};
+
+const TODOS_LOS_TIPOS = [
+  { value: "perfume", label: "Perfume" },
+  { value: "body_splash", label: "Body Splash" },
+  { value: "crema", label: "Crema" },
+  { value: "jabon", label: "Jabón" },
+  { value: "desodorante", label: "Desodorante" },
+  { value: "maquillaje", label: "Maquillaje" },
+  { value: "aros", label: "Aros" },
+  { value: "collar", label: "Collar" },
+  { value: "pulsera", label: "Pulsera" },
+  { value: "anillo", label: "Anillo" },
+  { value: "dije", label: "Dije" },
+];
+
+const FORM_VACIO = {
+  id: null,
+  nombre: "A",
+  marca: "",
+  precio: 0,
+  precio_anterior: "",
+  categoria: "",
+  tamano: "",
+  tipo: "crema",
+  secciones: ["natura"],
+  disponibilidad: "inmediata",
+  en_promo: false,
+  fotos: [],
+  vencimiento: "",
+  codigo: "",
+  cantidad_stock: "",
+};
 
 function normalizarTexto(str) {
   return (str || "")
@@ -58,748 +87,1188 @@ function normalizarTexto(str) {
     .toLowerCase();
 }
 
-function Heart({ filled }) {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill={filled ? "#6B1E3C" : "none"}
-      stroke={filled ? "#6B1E3C" : "#2B2320"}
-      strokeWidth="2"
-    >
-      <path d="M12 21s-7.5-4.6-10-9.2C.4 8.1 2 4.5 5.6 4c2-.3 3.8.7 4.9 2.3.4.6.9 1.4 1.5 2.3.6-.9 1.1-1.7 1.5-2.3C14.6 4.7 16.4 3.7 18.4 4c3.6.5 5.2 4.1 3.6 7.8C19.5 16.4 12 21 12 21z" />
-    </svg>
-  );
+function calcularSiguienteCodigo(perfumes) {
+  const regex = /^([A-Za-z]*)(\d+)$/;
+  let mejor = null;
+
+  perfumes.forEach((p) => {
+    const m = (p.codigo || "").trim().match(regex);
+    if (!m) return;
+    const numero = parseInt(m[2], 10);
+    if (!mejor || numero > mejor.numero) {
+      mejor = { prefijo: m[1], numero, digitos: m[2].length, texto: p.codigo };
+    }
+  });
+
+  if (!mejor) return null;
+
+  const siguienteNum = String(mejor.numero + 1).padStart(mejor.digitos, "0");
+  return {
+    ultimo: mejor.texto,
+    sugerido: `${mejor.prefijo}${siguienteNum}`,
+  };
 }
 
-function FotosCarrusel({ fotos, nombre }) {
-  const [idx, setIdx] = useState(0);
-  const lista = fotos && fotos.length > 0 ? fotos : [];
+export default function Admin() {
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
+  const [perfumes, setPerfumes] = useState([]);
+  const [preciosOcultos, setPreciosOcultos] = useState([]);
+  const [tabActiva, setTabActiva] = useState("nuevo");
+  const [mostrarAvanzados, setMostrarAvanzados] = useState(false);
+  const [seccionConfigOcultar, setSeccionConfigOcultar] =
+    useState("perfumeria");
 
-  function anterior(e) {
-    e.stopPropagation();
-    setIdx((i) => (i === 0 ? lista.length - 1 : i - 1));
-  }
-
-  function siguiente(e) {
-    e.stopPropagation();
-    setIdx((i) => (i === lista.length - 1 ? 0 : i + 1));
-  }
-
-  if (lista.length === 0) return null;
-
-  return (
-    <>
-      <img src={lista[idx]} alt={nombre} />
-      {lista.length > 1 && (
-        <>
-          <button
-            className="carrusel-arrow left"
-            onClick={anterior}
-            aria-label="Foto anterior"
-          >
-            ‹
-          </button>
-          <button
-            className="carrusel-arrow right"
-            onClick={siguiente}
-            aria-label="Foto siguiente"
-          >
-            ›
-          </button>
-          <div className="carrusel-dots">
-            {lista.map((_, i) => (
-              <span key={i} className={`dot ${i === idx ? "active" : ""}`} />
-            ))}
-          </div>
-        </>
-      )}
-    </>
-  );
-}
-
-export default function Home({ initialPerfumes, initialPreciosOcultos }) {
-  const [perfumes, setPerfumes] = useState(initialPerfumes || []);
-  const [preciosOcultos, setPreciosOcultos] = useState(
-    initialPreciosOcultos || [],
-  );
-  const [seccionActual, setSeccionActual] = useState(null);
-  const [categoria, setCategoria] = useState("todas");
-  const [tamano, setTamano] = useState("todos");
-  const [soloPromos, setSoloPromos] = useState(false);
-  const [filtroDisponibilidad, setFiltroDisponibilidad] = useState("todos");
+  const [form, setForm] = useState(FORM_VACIO);
+  const [files, setFiles] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [busqueda, setBusqueda] = useState("");
-  const [orden, setOrden] = useState("nuevos");
-  const [tipo, setTipo] = useState("todos");
-  const [favoritos, setFavoritos] = useState([]);
 
-  useEffect(() => {
-    const intervalo = setInterval(async () => {
-      const { data } = await supabase
-        .from("perfumes")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (data) setPerfumes(data);
-
-      const { data: conf } = await supabase
-        .from("configuracion")
-        .select("valor")
-        .eq("clave", "precios_ocultos")
-        .maybeSingle();
-      if (conf?.valor) setPreciosOcultos(conf.valor);
-    }, 30000);
-    return () => clearInterval(intervalo);
-  }, []);
-
-  useEffect(() => {
-    try {
-      const guardados = JSON.parse(
-        window.localStorage.getItem(FAVORITOS_KEY) || "[]",
-      );
-      setFavoritos(guardados);
-    } catch {
-      setFavoritos([]);
-    }
-  }, []);
-
-  function toggleFavorito(id) {
-    setFavoritos((prev) => {
-      const next = prev.includes(id)
-        ? prev.filter((f) => f !== id)
-        : [...prev, id];
-      window.localStorage.setItem(FAVORITOS_KEY, JSON.stringify(next));
-      return next;
-    });
-  }
-
-  const productosFavoritos = useMemo(
-    () => perfumes.filter((p) => favoritos.includes(p.id)),
-    [perfumes, favoritos],
+  const siguienteCodigo = useMemo(
+    () => calcularSiguienteCodigo(perfumes),
+    [perfumes],
   );
 
-  // Determina si el precio está oculto según las secciones del producto
-  function tienePrecioOculto(p) {
-    if (Number(p.precio) === 0) return true;
-    const secs =
-      p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"];
-    const t = p.tipo || "perfume";
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.replace("/admin/login");
+      } else {
+        setChecking(false);
+        cargarPerfumes();
+        cargarConfiguracion();
+      }
+    });
+  }, [router]);
 
-    if (seccionActual) {
-      return preciosOcultos.includes(`${seccionActual}:${t}`);
-    }
-    return secs.some((sec) => preciosOcultos.includes(`${sec}:${t}`));
+  const cargarPerfumes = useCallback(async () => {
+    const { data } = await supabase
+      .from("perfumes")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (data) setPerfumes(data);
+  }, []);
+
+  const cargarConfiguracion = useCallback(async () => {
+    const { data } = await supabase
+      .from("configuracion")
+      .select("valor")
+      .eq("clave", "precios_ocultos")
+      .maybeSingle();
+    if (data?.valor) setPreciosOcultos(data.valor);
+  }, []);
+
+  async function toggleOcultarPrecio(secId, tipo) {
+    const clave = `${secId}:${tipo}`;
+    const nuevo = preciosOcultos.includes(clave)
+      ? preciosOcultos.filter((k) => k !== clave)
+      : [...preciosOcultos, clave];
+
+    setPreciosOcultos(nuevo);
+    await supabase.from("configuracion").upsert({
+      clave: "precios_ocultos",
+      valor: nuevo,
+    });
   }
 
-  function enviarPorWhatsapp() {
-    const inmediatos = productosFavoritos.filter(
-      (p) =>
-        (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) ===
-        "inmediata",
-    );
-    const encargo = productosFavoritos.filter(
-      (p) =>
-        (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) ===
-        "encargo",
-    );
-
-    let mensaje =
-      "Hola, vi el catálogo y me interesan los siguientes artículos:\n\n";
-
-    if (inmediatos.length > 0) {
-      mensaje += "DISPONIBLES PARA RETIRAR HOY:\n";
-      inmediatos.forEach((p) => {
-        const oculto = tienePrecioOculto(p);
-        const precioTxt = oculto
-          ? "Consultar precio"
-          : `$${Number(p.precio).toLocaleString("es-AR")}`;
-        mensaje += `• ${p.codigo ? `[${p.codigo}] ` : ""}${p.nombre} ${p.tamano ? `(${p.tamano})` : ""} - ${precioTxt}\n`;
-      });
-      mensaje += "\n";
-    }
-
-    if (encargo.length > 0) {
-      mensaje += "PARA ENCARGAR (ABONO PREVIO COMPLETO):\n";
-      encargo.forEach((p) => {
-        const oculto = tienePrecioOculto(p);
-        const precioTxt = oculto
-          ? "Consultar precio"
-          : `$${Number(p.precio).toLocaleString("es-AR")}`;
-        mensaje += `• ${p.codigo ? `[${p.codigo}] ` : ""}${p.nombre} ${p.tamano ? `(${p.tamano})` : ""} - ${precioTxt}\n`;
-      });
-      mensaje += "\n¿Me confirmás para coordinar?\n";
-    }
-
-    const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, "_blank");
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.replace("/admin/login");
   }
 
-  const esBusquedaActiva = busqueda.trim().length > 0;
+  const tiposDisponiblesForm = useMemo(() => {
+    const secs = form.secciones || [];
+    if (secs.length === 1 && secs[0] in TIPOS_POR_SECCION) {
+      return TIPOS_POR_SECCION[secs[0]];
+    }
+    return TODOS_LOS_TIPOS;
+  }, [form.secciones]);
 
-  const productosBaseSeccion = useMemo(() => {
-    if (!seccionActual) return perfumes;
-    return perfumes.filter((p) => {
-      const secs =
-        p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"];
-      return secs.includes(seccionActual);
-    });
-  }, [perfumes, seccionActual]);
+  function toggleSeccion(secId) {
+    const actuales = form.secciones || [];
+    let nuevas = actuales.includes(secId)
+      ? actuales.filter((s) => s !== secId)
+      : [...actuales, secId];
 
-  const tiposDisponibles = useMemo(() => {
-    const tiposEncontrados = new Set(
-      productosBaseSeccion
-        .filter(
-          (p) =>
-            (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) !==
-            "agotado",
-        )
-        .map((p) => p.tipo || "perfume"),
-    );
+    if (nuevas.length === 0) nuevas = [secId];
 
-    const lista = [{ value: "todos", label: "Todos los tipos" }];
-    tiposEncontrados.forEach((t) => {
-      lista.push({ value: t, label: LABELS_TIPO[t] || t });
-    });
-    return lista;
-  }, [productosBaseSeccion]);
-
-  const categoriasDisponibles = useMemo(() => {
-    const catsEncontradas = new Set(
-      productosBaseSeccion
-        .filter(
-          (p) =>
-            (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) !==
-            "agotado",
-        )
-        .map((p) => p.categoria)
-        .filter(Boolean),
-    );
-
-    const lista = [{ value: "todas", label: "Todas" }];
-    CATEGORIAS.filter((c) => c.value !== "todas").forEach((c) => {
-      if (catsEncontradas.has(c.value)) {
-        lista.push(c);
+    let nuevoTipo = form.tipo;
+    if (nuevas.length === 1 && TIPOS_POR_SECCION[nuevas[0]]) {
+      const validos = TIPOS_POR_SECCION[nuevas[0]].map((t) => t.value);
+      if (!validos.includes(nuevoTipo)) {
+        nuevoTipo = validos[0];
       }
-    });
-    return lista;
-  }, [productosBaseSeccion]);
+    }
 
-  const tamanos = useMemo(() => {
-    const s = new Set(
-      productosBaseSeccion.map((p) => p.tamano).filter(Boolean),
-    );
-    return ["todos", ...Array.from(s)];
-  }, [productosBaseSeccion]);
-
-  const filtrados = useMemo(() => {
-    const lista = perfumes.filter((p) => {
-      const secs =
-        p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"];
-      const disp = p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
-
-      if (disp === "agotado") return false;
-
-      if (!esBusquedaActiva && seccionActual) {
-        if (!secs.includes(seccionActual)) return false;
-      }
-
-      if (
-        (seccionActual === "perfumeria" || seccionActual === "joyeria") &&
-        categoria !== "todas"
-      ) {
-        if (p.categoria !== categoria) return false;
-      }
-
-      if (tipo !== "todos" && (p.tipo || "perfume") !== tipo) return false;
-      if (tamano !== "todos" && p.tamano !== tamano) return false;
-      if (soloPromos && !p.en_promo) return false;
-      if (filtroDisponibilidad !== "todos" && disp !== filtroDisponibilidad)
-        return false;
-
-      if (esBusquedaActiva) {
-        const q = normalizarTexto(busqueda);
-        const match =
-          normalizarTexto(p.nombre).includes(q) ||
-          normalizarTexto(p.marca).includes(q) ||
-          normalizarTexto(p.codigo).includes(q);
-        if (!match) return false;
-      }
-
-      return true;
-    });
-
-    return [...lista].sort((a, b) => {
-      const dispA = a.disponibilidad || (a.en_stock ? "inmediata" : "encargo");
-      const dispB = b.disponibilidad || (b.en_stock ? "inmediata" : "encargo");
-
-      if (dispA !== dispB) {
-        return dispA === "inmediata" ? -1 : 1;
-      }
-      if (orden === "precio_asc") {
-        return Number(a.precio) - Number(b.precio);
-      }
-      if (orden === "precio_desc") {
-        return Number(b.precio) - Number(a.precio);
-      }
-      return new Date(b.created_at) - new Date(a.created_at);
-    });
-  }, [
-    perfumes,
-    seccionActual,
-    categoria,
-    tamano,
-    soloPromos,
-    filtroDisponibilidad,
-    busqueda,
-    orden,
-    tipo,
-    esBusquedaActiva,
-  ]);
-
-  function cambiarSeccion(secId) {
-    setSeccionActual(secId);
-    setTipo("todos");
-    setCategoria("todas");
-    setTamano("todos");
-    setFiltroDisponibilidad("todos");
+    setForm({ ...form, secciones: nuevas, tipo: nuevoTipo });
   }
+
+  function editar(p) {
+    setForm({
+      ...p,
+      cantidad_stock: p.cantidad_stock ?? "",
+      precio_anterior: p.precio_anterior ?? "",
+      tipo: p.tipo || "perfume",
+      categoria: p.categoria || "",
+      disponibilidad:
+        p.disponibilidad || (p.en_stock ? "inmediata" : "encargo"),
+      secciones:
+        p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"],
+    });
+    setFiles([]);
+    setTabActiva("nuevo");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function nuevo() {
+    setForm(FORM_VACIO);
+    setFiles([]);
+    setMostrarAvanzados(false);
+  }
+
+  async function eliminar(id) {
+    if (!confirm("¿Borrar este producto?")) return;
+    await supabase.from("perfumes").delete().eq("id", id);
+    cargarPerfumes();
+  }
+
+  function quitarFotoExistente(url) {
+    setForm({
+      ...form,
+      fotos: (form.fotos || []).filter((f) => f !== url),
+    });
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+
+    try {
+      let fotos = form.fotos || [];
+
+      if (files.length > 0) {
+        const urlsNuevas = [];
+        for (const f of files) {
+          const ext = f.name.split(".").pop();
+          const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from("perfumes-fotos")
+            .upload(path, f);
+          if (uploadError) throw uploadError;
+          const { data: pub } = supabase.storage
+            .from("perfumes-fotos")
+            .getPublicUrl(path);
+          urlsNuevas.push(pub.publicUrl);
+        }
+        fotos = [...fotos, ...urlsNuevas];
+      }
+
+      const esFragancia =
+        form.tipo === "perfume" || form.tipo === "body_splash";
+
+      const payload = {
+        nombre: form.nombre || "A",
+        marca: form.marca,
+        precio: Number(form.precio) || 0,
+        precio_anterior:
+          form.en_promo && form.precio_anterior
+            ? Number(form.precio_anterior)
+            : null,
+        categoria: form.categoria || null,
+        tamano: form.tamano || null,
+        tipo: form.tipo,
+        secciones:
+          form.secciones && form.secciones.length > 0
+            ? form.secciones
+            : ["perfumeria"],
+        disponibilidad: form.disponibilidad,
+        en_stock: form.disponibilidad === "inmediata",
+        en_promo: form.en_promo,
+        fotos,
+        foto_url: fotos[0] || null,
+        vencimiento: form.vencimiento || null,
+        codigo: esFragancia ? form.codigo || null : null,
+        cantidad_stock:
+          form.cantidad_stock === "" ? null : Number(form.cantidad_stock),
+      };
+
+      if (form.id) {
+        const { error: updateError } = await supabase
+          .from("perfumes")
+          .update(payload)
+          .eq("id", form.id);
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from("perfumes")
+          .insert(payload);
+        if (insertError) throw insertError;
+      }
+
+      nuevo();
+      cargarPerfumes();
+      alert("¡Producto guardado!");
+    } catch (err) {
+      setError(err.message || "Algo salió mal, probá de nuevo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (checking) return null;
+
+  const esFragancia = form.tipo === "perfume" || form.tipo === "body_splash";
+
+  const perfumesVisibles = perfumes.filter((p) => {
+    if (!busqueda.trim()) return true;
+    const q = normalizarTexto(busqueda);
+    return (
+      normalizarTexto(p.nombre).includes(q) ||
+      normalizarTexto(p.marca).includes(q) ||
+      normalizarTexto(p.codigo).includes(q)
+    );
+  });
 
   return (
-    <div className="page">
+    <div
+      className="admin-shell"
+      style={{ paddingBottom: tabActiva === "nuevo" ? 90 : 30 }}
+    >
       <Head>
-        <title>Catálogo | Blanquita Indumentaria</title>
+        <title>Admin Móvil — Blanquita</title>
         <meta
-          name="description"
-          content="Productos disponibles para retirar en el local o encargar."
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1"
         />
       </Head>
 
-      <header className="header">
-        <div className="container">
-          <div className="header-mark">
-            <span className="header-eyebrow">
-              Stock inmediato y pedidos por catálogo
-            </span>
-          </div>
-          <h1 className="header-title serif">Catálogo Blanquita</h1>
-          <p className="header-sub">
-            Productos para retiro inmediato o por encargo con abono previo
-            completo.
-          </p>
-
-          {seccionActual && (
-            <div className="secciones-nav" style={{ marginTop: 16 }}>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setSeccionActual(null)}
-              >
-                Ver todas las secciones
-              </button>
-              <div
-                className="secciones-tabs"
-                style={{
-                  display: "inline-flex",
-                  gap: 8,
-                  marginLeft: 10,
-                  flexWrap: "wrap",
-                }}
-              >
-                {SECCIONES.map((sec) => (
-                  <button
-                    key={sec.id}
-                    className={`pill ${seccionActual === sec.id ? "active" : ""}`}
-                    onClick={() => cambiarSeccion(sec.id)}
-                  >
-                    {sec.nombre}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
-
-      <div className="container">
-        <div className="search-bar">
-          <input
-            type="text"
-            placeholder="Buscar por nombre, código o marca en todo el catálogo…"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="search-input-public"
-          />
-          {(seccionActual || esBusquedaActiva) && (
-            <select
-              className="orden-select"
-              value={orden}
-              onChange={(e) => setOrden(e.target.value)}
+      <div className="admin-header" style={{ padding: "12px 0" }}>
+        <div
+          className="container"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span className="admin-title serif" style={{ fontSize: 18 }}>
+            Admin Blanquita
+          </span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <a
+              className="btn btn-ghost btn-sm"
+              href="/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 12 }}
             >
-              <option value="nuevos">Más nuevos primero</option>
-              <option value="precio_asc">Precio: menor a mayor</option>
-              <option value="precio_desc">Precio: mayor a menor</option>
-            </select>
-          )}
-        </div>
-
-        {esBusquedaActiva && (
-          <div
-            className="busqueda-aviso"
-            style={{
-              marginBottom: 20,
-              padding: "10px 14px",
-              background: "#fdf8f4",
-              border: "1px solid #ebd9c8",
-              borderRadius: 8,
-              fontSize: 14,
-            }}
-          >
-            <strong>Búsqueda global:</strong> buscando &quot;{busqueda}&quot; en
-            todas las secciones.
+              Ver web
+            </a>
             <button
-              style={{
-                marginLeft: 10,
-                textDecoration: "underline",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#6B1E3C",
-              }}
-              onClick={() => setBusqueda("")}
+              className="btn btn-ghost btn-sm"
+              onClick={handleLogout}
+              style={{ fontSize: 12 }}
             >
-              Limpiar búsqueda
+              Salir
             </button>
           </div>
-        )}
+        </div>
+      </div>
 
-        {!seccionActual && !esBusquedaActiva ? (
-          <div
-            className="secciones-grid"
+      <div
+        style={{
+          background: "#fff",
+          borderBottom: "1px solid #ebd9c8",
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
+        }}
+      >
+        <div
+          className="container"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            padding: 0,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setTabActiva("nuevo")}
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: 20,
-              margin: "30px 0",
+              padding: "14px 8px",
+              border: "none",
+              background: "none",
+              fontSize: 14,
+              fontWeight: 600,
+              color: tabActiva === "nuevo" ? "#6B1E3C" : "#777",
+              borderBottom:
+                tabActiva === "nuevo" ? "3px solid #6B1E3C" : "none",
+              cursor: "pointer",
             }}
           >
-            {SECCIONES.map((sec) => {
-              const cant = perfumes.filter((p) => {
-                const s =
-                  p.secciones && p.secciones.length > 0
-                    ? p.secciones
-                    : ["perfumeria"];
-                const disp =
-                  p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
-                return s.includes(sec.id) && disp !== "agotado";
-              }).length;
+            {form.id ? "Editar" : "Cargar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTabActiva("lista")}
+            style={{
+              padding: "14px 8px",
+              border: "none",
+              background: "none",
+              fontSize: 14,
+              fontWeight: 600,
+              color: tabActiva === "lista" ? "#6B1E3C" : "#777",
+              borderBottom:
+                tabActiva === "lista" ? "3px solid #6B1E3C" : "none",
+              cursor: "pointer",
+            }}
+          >
+            Lista ({perfumes.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTabActiva("precios")}
+            style={{
+              padding: "14px 8px",
+              border: "none",
+              background: "none",
+              fontSize: 14,
+              fontWeight: 600,
+              color: tabActiva === "precios" ? "#6B1E3C" : "#777",
+              borderBottom:
+                tabActiva === "precios" ? "3px solid #6B1E3C" : "none",
+              cursor: "pointer",
+            }}
+          >
+            Precios
+          </button>
+        </div>
+      </div>
 
-              return (
+      <div className="container" style={{ marginTop: 16 }}>
+        {tabActiva === "nuevo" && (
+          <form onSubmit={handleSubmit}>
+            {error && (
+              <div className="error" style={{ marginBottom: 14 }}>
+                {error}
+              </div>
+            )}
+
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  marginBottom: 6,
+                }}
+              >
+                1. ¿A qué sección va?
+              </label>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                }}
+              >
+                {SECCIONES_DISPONIBLES.map((sec) => {
+                  const sel = (form.secciones || []).includes(sec.id);
+                  return (
+                    <button
+                      key={sec.id}
+                      type="button"
+                      onClick={() => toggleSeccion(sec.id)}
+                      style={{
+                        padding: "12px 10px",
+                        borderRadius: 8,
+                        border: `1.5px solid ${sel ? "#6B1E3C" : "#ddd"}`,
+                        background: sel ? "#6B1E3C" : "#fff",
+                        color: sel ? "#fff" : "#2b2320",
+                        fontWeight: sel ? "700" : "500",
+                        fontSize: 14,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {sec.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginBottom: 16,
+                background: "#fff",
+                padding: 14,
+                borderRadius: 10,
+                border: "1px solid #ebd9c8",
+              }}
+            >
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  marginBottom: 6,
+                }}
+              >
+                2. Foto(s) del producto
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => setFiles(Array.from(e.target.files))}
+                style={{ width: "100%", fontSize: 14 }}
+              />
+              {form.fotos && form.fotos.length > 0 && (
                 <div
-                  key={sec.id}
-                  className="seccion-card card"
-                  onClick={() => cambiarSeccion(sec.id)}
                   style={{
-                    cursor: "pointer",
-                    padding: 28,
-                    textAlign: "center",
+                    display: "flex",
+                    gap: 8,
+                    marginTop: 10,
+                    flexWrap: "wrap",
                   }}
                 >
-                  <h2
-                    className="serif"
-                    style={{ margin: "0 0 10px 0", fontSize: 24 }}
-                  >
-                    {sec.nombre}
-                  </h2>
-                  <p
-                    style={{
-                      fontSize: 14,
-                      color: "#6b5f57",
-                      margin: "0 0 16px 0",
-                    }}
-                  >
-                    {sec.descripcion}
-                  </p>
-                  <span className="pill" style={{ pointerEvents: "none" }}>
-                    {cant} {cant === 1 ? "artículo" : "artículos"}
-                  </span>
+                  {form.fotos.map((url) => (
+                    <div key={url} style={{ position: "relative" }}>
+                      <img
+                        src={url}
+                        alt=""
+                        style={{
+                          width: 60,
+                          height: 60,
+                          objectFit: "cover",
+                          borderRadius: 6,
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => quitarFotoExistente(url)}
+                        style={{
+                          position: "absolute",
+                          top: -6,
+                          right: -6,
+                          background: "#d9534f",
+                          color: "#fff",
+                          borderRadius: "50%",
+                          width: 22,
+                          height: 22,
+                          border: "none",
+                          fontSize: 12,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <>
-            <div className="filters">
-              <div className="filter-group">
-                <span className="filter-label">Disponibilidad</span>
+              )}
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  marginBottom: 6,
+                }}
+              >
+                3. Disponibilidad
+              </label>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                }}
+              >
                 <button
-                  className={`pill ${filtroDisponibilidad === "todos" ? "active" : ""}`}
-                  onClick={() => setFiltroDisponibilidad("todos")}
+                  type="button"
+                  onClick={() =>
+                    setForm({ ...form, disponibilidad: "inmediata" })
+                  }
+                  style={{
+                    padding: "10px",
+                    borderRadius: 8,
+                    border: `1.5px solid ${form.disponibilidad === "inmediata" ? "#2e7d32" : "#ddd"}`,
+                    background:
+                      form.disponibilidad === "inmediata" ? "#2e7d32" : "#fff",
+                    color:
+                      form.disponibilidad === "inmediata" ? "#fff" : "#2b2320",
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
                 >
-                  Todos
+                  Inmediata (en mano)
                 </button>
                 <button
-                  className={`pill ${filtroDisponibilidad === "inmediata" ? "active" : ""}`}
-                  onClick={() => setFiltroDisponibilidad("inmediata")}
-                >
-                  Entrega inmediata
-                </button>
-                <button
-                  className={`pill ${filtroDisponibilidad === "encargo" ? "active" : ""}`}
-                  onClick={() => setFiltroDisponibilidad("encargo")}
+                  type="button"
+                  onClick={() =>
+                    setForm({ ...form, disponibilidad: "encargo" })
+                  }
+                  style={{
+                    padding: "10px",
+                    borderRadius: 8,
+                    border: `1.5px solid ${form.disponibilidad === "encargo" ? "#6B1E3C" : "#ddd"}`,
+                    background:
+                      form.disponibilidad === "encargo" ? "#6B1E3C" : "#fff",
+                    color:
+                      form.disponibilidad === "encargo" ? "#fff" : "#2b2320",
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
                 >
                   Por encargo
                 </button>
               </div>
+            </div>
 
-              {tiposDisponibles.length > 2 && (
-                <div className="filter-group">
-                  <span className="filter-label">Tipo</span>
-                  {tiposDisponibles.map((t) => (
-                    <button
-                      key={t.value}
-                      className={`pill ${tipo === t.value ? "active" : ""}`}
-                      onClick={() => setTipo(t.value)}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {(seccionActual === "perfumeria" ||
-                seccionActual === "joyeria") &&
-                !esBusquedaActiva &&
-                categoriasDisponibles.length > 2 && (
-                  <div className="filter-group">
-                    <span className="filter-label">Categoría</span>
-                    {categoriasDisponibles.map((c) => (
-                      <button
-                        key={c.value}
-                        className={`pill ${categoria === c.value ? "active" : ""}`}
-                        onClick={() => setCategoria(c.value)}
-                      >
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-              {tamanos.length > 2 && (
-                <div className="filter-group">
-                  <span className="filter-label">Tamaño</span>
-                  {tamanos.map((t) => (
-                    <button
-                      key={t}
-                      className={`pill ${tamano === t ? "active" : ""}`}
-                      onClick={() => setTamano(t)}
-                    >
-                      {t === "todos" ? "Todos" : t}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="filter-group">
-                <button
-                  className={`pill pill-promo ${soloPromos ? "active" : ""}`}
-                  onClick={() => setSoloPromos((v) => !v)}
-                >
-                  🏷️ Promociones
-                </button>
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  marginBottom: 6,
+                }}
+              >
+                4. Tipo
+              </label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {tiposDisponiblesForm.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setForm({ ...form, tipo: t.value })}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 20,
+                      border: `1px solid ${form.tipo === t.value ? "#6B1E3C" : "#ccc"}`,
+                      background: form.tipo === t.value ? "#6B1E3C" : "#fff",
+                      color: form.tipo === t.value ? "#fff" : "#2b2320",
+                      fontSize: 13,
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {filtrados.length === 0 ? (
-              <div className="empty">
-                <div className="empty-title serif">
-                  No se encontraron productos
-                </div>
-                <p>Probá cambiando los filtros o el término de búsqueda.</p>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "2fr 1fr",
+                gap: 10,
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    marginBottom: 4,
+                  }}
+                >
+                  Nombre
+                </label>
+                <input
+                  value={form.nombre}
+                  onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    fontSize: 15,
+                    borderRadius: 6,
+                    border: "1px solid #ccc",
+                  }}
+                  required
+                />
               </div>
-            ) : (
-              <div className="grid">
-                {filtrados.map((p) => {
-                  const secs =
-                    p.secciones && p.secciones.length > 0
-                      ? p.secciones
-                      : ["perfumeria"];
-                  const disp =
-                    p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
-                  const tipoActual = p.tipo || "perfume";
-                  const esPerfumeriaOBs =
-                    tipoActual === "perfume" || tipoActual === "body_splash";
-                  const precioOculto = tienePrecioOculto(p);
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    marginBottom: 4,
+                  }}
+                >
+                  Precio ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.precio}
+                  onChange={(e) => setForm({ ...form, precio: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    fontSize: 15,
+                    borderRadius: 6,
+                    border: "1px solid #ccc",
+                  }}
+                  required
+                />
+              </div>
+            </div>
 
-                  return (
-                    <div className="card" key={p.id}>
-                      <div className="card-photo">
-                        <FotosCarrusel fotos={p.fotos} nombre={p.nombre} />
-                        <div className="card-badges-left">
-                          {secs.map((sId) => {
-                            const matchSec = SECCIONES.find(
-                              (s) => s.id === sId,
-                            );
-                            if (!matchSec) return null;
-                            return (
-                              <span
-                                key={sId}
-                                className="card-badge"
-                                style={{ marginRight: 4 }}
-                              >
-                                {matchSec.nombre}
-                              </span>
-                            );
-                          })}
-
-                          {p.tipo && (
-                            <span className="card-badge-tipo">
-                              {LABELS_TIPO[p.tipo] ||
-                                p.tipo.charAt(0).toUpperCase() +
-                                  p.tipo.slice(1)}
-                            </span>
-                          )}
-                          {p.en_promo && (
-                            <span className="card-badge-promo">🏷️ Promo</span>
-                          )}
-                        </div>
-
-                        {esPerfumeriaOBs && p.codigo && (
-                          <span className="card-codigo-bubble">{p.codigo}</span>
-                        )}
-
-                        <button
-                          className="fav-btn"
-                          onClick={() => toggleFavorito(p.id)}
-                          aria-label={
-                            favoritos.includes(p.id)
-                              ? "Quitar de favoritos"
-                              : "Agregar a favoritos"
-                          }
-                        >
-                          <Heart filled={favoritos.includes(p.id)} />
-                        </button>
-                      </div>
-                      <div className="card-body">
-                        <div className="card-name serif">{p.nombre}</div>
-                        <div className="card-meta">
-                          {p.tamano && <span>{p.tamano}</span>}
-                          {p.tamano && p.marca && <span className="card-dot" />}
-                          <span>{p.marca || "Sin marca"}</span>
-                        </div>
-
-                        {!precioOculto &&
-                          p.en_promo &&
-                          p.precio_anterior > p.precio && (
-                            <div className="card-descuento-row">
-                              <span className="card-price-old">
-                                $
-                                {Number(p.precio_anterior).toLocaleString(
-                                  "es-AR",
-                                )}
-                              </span>
-                              <span className="card-discount-badge">
-                                -
-                                {Math.round(
-                                  100 -
-                                    (Number(p.precio) /
-                                      Number(p.precio_anterior)) *
-                                      100,
-                                )}
-                                %
-                              </span>
-                            </div>
-                          )}
-
-                        <div
-                          className="card-footer"
-                          style={{
-                            flexDirection: "column",
-                            alignItems: "flex-start",
-                            gap: 6,
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              width: "100%",
-                              alignItems: "center",
-                            }}
-                          >
-                            <span className="card-price">
-                              {precioOculto
-                                ? "Consultar precio"
-                                : `$${Number(p.precio).toLocaleString("es-AR")}`}
-                            </span>
-                            <span
-                              className={`card-stock ${disp === "encargo" ? "out" : ""}`}
-                            >
-                              {disp === "inmediata"
-                                ? "Entrega inmediata"
-                                : "Por encargo"}
-                            </span>
-                          </div>
-                          {disp === "encargo" && (
-                            <span
-                              style={{
-                                fontSize: 11,
-                                color: "#6B1E3C",
-                                fontWeight: 500,
-                              }}
-                            >
-                              Abono previo completo
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+            {esFragancia && (
+              <div
+                style={{
+                  marginBottom: 16,
+                  background: "#fdf8f4",
+                  padding: 12,
+                  borderRadius: 8,
+                  border: "1px solid #ebd9c8",
+                }}
+              >
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    marginBottom: 4,
+                  }}
+                >
+                  Código de muestra
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    value={form.codigo || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, codigo: e.target.value })
+                    }
+                    placeholder="ej. C001"
+                    style={{
+                      flex: 1,
+                      padding: 8,
+                      borderRadius: 6,
+                      border: "1px solid #ccc",
+                    }}
+                  />
+                  {siguienteCodigo && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, codigo: siguienteCodigo.sugerido })
+                      }
+                      style={{
+                        padding: "0 10px",
+                        background: "#6B1E3C",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 6,
+                        fontSize: 12,
+                      }}
+                    >
+                      Usar {siguienteCodigo.sugerido}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
-          </>
+
+            <div style={{ marginBottom: 20 }}>
+              <button
+                type="button"
+                onClick={() => setMostrarAvanzados((v) => !v)}
+                style={{
+                  width: "100%",
+                  padding: 10,
+                  background: "#f4ede6",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  color: "#6B1E3C",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {mostrarAvanzados
+                  ? "▲ Ocultar opciones opcionales"
+                  : "▼ Completar marca, medida, vencimiento o promo"}
+              </button>
+            </div>
+
+            {mostrarAvanzados && (
+              <div
+                style={{
+                  background: "#fff",
+                  padding: 14,
+                  borderRadius: 10,
+                  border: "1px solid #ddd",
+                  marginBottom: 20,
+                }}
+              >
+                <div style={{ marginBottom: 12 }}>
+                  <label
+                    style={{ fontSize: 12, fontWeight: 600, display: "block" }}
+                  >
+                    Marca / Línea / Detalle
+                  </label>
+                  <input
+                    value={form.marca}
+                    onChange={(e) =>
+                      setForm({ ...form, marca: e.target.value })
+                    }
+                    placeholder="ej. Ekos, Acero quirúrgico"
+                    style={{
+                      width: "100%",
+                      padding: 8,
+                      marginTop: 4,
+                      borderRadius: 6,
+                      border: "1px solid #ccc",
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 10,
+                    marginBottom: 12,
+                  }}
+                >
+                  <div>
+                    <label
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: "block",
+                      }}
+                    >
+                      Tamaño / Medida
+                    </label>
+                    <input
+                      value={form.tamano || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, tamano: e.target.value })
+                      }
+                      placeholder="ej. 75g, 50cm"
+                      style={{
+                        width: "100%",
+                        padding: 8,
+                        marginTop: 4,
+                        borderRadius: 6,
+                        border: "1px solid #ccc",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: "block",
+                      }}
+                    >
+                      Público
+                    </label>
+                    <select
+                      value={form.categoria || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, categoria: e.target.value })
+                      }
+                      style={{
+                        width: "100%",
+                        padding: 8,
+                        marginTop: 4,
+                        borderRadius: 6,
+                        border: "1px solid #ccc",
+                      }}
+                    >
+                      {CATEGORIAS.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label
+                    style={{ fontSize: 12, fontWeight: 600, display: "block" }}
+                  >
+                    Vencimiento
+                  </label>
+                  <input
+                    type="date"
+                    value={form.vencimiento || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, vencimiento: e.target.value })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: 8,
+                      marginTop: 4,
+                      borderRadius: 6,
+                      border: "1px solid #ccc",
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 8 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 13,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.en_promo}
+                      onChange={(e) =>
+                        setForm({ ...form, en_promo: e.target.checked })
+                      }
+                    />
+                    Está en promoción 🏷️
+                  </label>
+                  {form.en_promo && (
+                    <input
+                      type="number"
+                      placeholder="Precio anterior tachado"
+                      value={form.precio_anterior}
+                      onChange={(e) =>
+                        setForm({ ...form, precio_anterior: e.target.value })
+                      }
+                      style={{
+                        width: "100%",
+                        padding: 8,
+                        marginTop: 8,
+                        borderRadius: 6,
+                        border: "1px solid #ccc",
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div
+              style={{
+                position: "fixed",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: "#fff",
+                padding: "12px 16px",
+                boxShadow: "0 -2px 10px rgba(0,0,0,0.1)",
+                display: "flex",
+                gap: 10,
+                zIndex: 20,
+              }}
+            >
+              {form.id && (
+                <button
+                  type="button"
+                  onClick={nuevo}
+                  style={{
+                    flex: 1,
+                    padding: "14px",
+                    borderRadius: 8,
+                    border: "1px solid #ccc",
+                    background: "#f8f8f8",
+                    fontWeight: 600,
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={saving}
+                style={{
+                  flex: 2,
+                  padding: "14px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#6B1E3C",
+                  color: "#fff",
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {saving
+                  ? "Guardando…"
+                  : form.id
+                    ? "Guardar cambios"
+                    : "✓ Guardar producto"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {tabActiva === "lista" && (
+          <div>
+            <input
+              type="text"
+              placeholder="Buscar por nombre, código o marca…"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 8,
+                border: "1px solid #ccc",
+                marginBottom: 14,
+                fontSize: 15,
+              }}
+            />
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {perfumesVisibles.map((p) => {
+                const disp =
+                  p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      background: "#fff",
+                      padding: 12,
+                      borderRadius: 10,
+                      border: "1px solid #ebd9c8",
+                      display: "flex",
+                      gap: 12,
+                      alignItems: "center",
+                    }}
+                  >
+                    {p.fotos && p.fotos[0] ? (
+                      <img
+                        src={p.fotos[0]}
+                        alt=""
+                        style={{
+                          width: 65,
+                          height: 65,
+                          objectFit: "cover",
+                          borderRadius: 8,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 65,
+                          height: 65,
+                          background: "#eee",
+                          borderRadius: 8,
+                        }}
+                      />
+                    )}
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 6,
+                          alignItems: "center",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {p.codigo && (
+                          <span
+                            style={{
+                              background: "#2B2320",
+                              color: "#fff",
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                              fontSize: 10,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {p.codigo}
+                          </span>
+                        )}
+                        <strong
+                          style={{
+                            fontSize: 15,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {p.nombre}
+                        </strong>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#666" }}>
+                        {p.marca || "Sin marca"}{" "}
+                        {p.tamano ? `· ${p.tamano}` : ""}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 4,
+                          display: "flex",
+                          gap: 6,
+                          alignItems: "center",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color: "#6B1E3C",
+                            fontSize: 14,
+                          }}
+                        >
+                          ${Number(p.precio).toLocaleString("es-AR")}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: disp === "inmediata" ? "#2e7d32" : "#6B1E3C",
+                          }}
+                        >
+                          ● {disp === "inmediata" ? "Inmediato" : "Encargo"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => editar(p)}
+                        style={{
+                          padding: "6px 10px",
+                          background: "#f4ede6",
+                          border: "none",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#6B1E3C",
+                        }}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => eliminar(p.id)}
+                        style={{
+                          padding: "6px 10px",
+                          background: "#fdf0f0",
+                          border: "none",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          color: "#d9534f",
+                        }}
+                      >
+                        Borrar
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {perfumesVisibles.length === 0 && (
+                <div
+                  style={{ textAlign: "center", padding: 30, color: "#888" }}
+                >
+                  No se encontraron productos con esa búsqueda.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tabActiva === "precios" && (
+          <div
+            style={{
+              background: "#fff",
+              padding: 16,
+              borderRadius: 10,
+              border: "1px solid #ebd9c8",
+            }}
+          >
+            <h3 style={{ margin: "0 0 10px 0", fontSize: 16 }}>
+              Esconder precios al actualizar
+            </h3>
+            <p style={{ fontSize: 13, color: "#666", marginBottom: 14 }}>
+              Elegí la sección y tocá el producto para esconder su precio (el
+              cliente verá &quot;Consultar precio&quot;).
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                marginBottom: 14,
+                flexWrap: "wrap",
+              }}
+            >
+              {SECCIONES_DISPONIBLES.map((sec) => (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => setSeccionConfigOcultar(sec.id)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    background:
+                      seccionConfigOcultar === sec.id ? "#6B1E3C" : "#f0f0f0",
+                    color: seccionConfigOcultar === sec.id ? "#fff" : "#2b2320",
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  {sec.label}
+                </button>
+              ))}
+            </div>
+
+            <div
+              style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}
+            >
+              {(TIPOS_POR_SECCION[seccionConfigOcultar] || []).map((t) => {
+                const clave = `${seccionConfigOcultar}:${t.value}`;
+                const oculto = preciosOcultos.includes(clave);
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() =>
+                      toggleOcultarPrecio(seccionConfigOcultar, t.value)
+                    }
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 8,
+                      border: `1.5px solid ${oculto ? "#6B1E3C" : "#ddd"}`,
+                      background: oculto ? "#6B1E3C" : "#fff",
+                      color: oculto ? "#fff" : "#2b2320",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: 14,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>{t.label}</span>
+                    <span style={{ fontSize: 12 }}>
+                      {oculto ? "Oculto" : "Visible"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
-
-      <footer className="footer">
-        <div className="container footer">
-          <p>Comodoro Rivadavia</p>
-          <a href="/admin/login">Panel de administración</a>
-        </div>
-      </footer>
-
-      {productosFavoritos.length > 0 && (
-        <div className="fav-bar">
-          <div className="container fav-bar-inner">
-            <span className="fav-count">
-              <Heart filled /> {productosFavoritos.length}{" "}
-              {productosFavoritos.length === 1 ? "artículo" : "artículos"}
-            </span>
-            <button className="btn btn-primary" onClick={enviarPorWhatsapp}>
-              Consultar por WhatsApp
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
-}
-
-export async function getServerSideProps() {
-  const { data: perfumes } = await supabase
-    .from("perfumes")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  const { data: conf } = await supabase
-    .from("configuracion")
-    .select("valor")
-    .eq("clave", "precios_ocultos")
-    .maybeSingle();
-
-  return {
-    props: {
-      initialPerfumes: perfumes || [],
-      initialPreciosOcultos: conf?.valor || [],
-    },
-  };
 }

@@ -9,7 +9,7 @@ const SECCIONES = [
   {
     id: "perfumeria",
     nombre: "Perfumería",
-    descripcion: "Fragancias exclusivas para mujer, hombre e infantil",
+    descripcion: "Fragancias para mujer, hombre e infantil",
   },
   {
     id: "natura",
@@ -28,35 +28,26 @@ const SECCIONES = [
   },
 ];
 
-const TIPOS_PERFUMERIA = [
-  { value: "todos", label: "Todos los tipos" },
-  { value: "perfume", label: "Perfumes" },
-  { value: "body_splash", label: "Body Splash" },
-];
-
-const TIPOS_COSMETICA = [
-  { value: "todos", label: "Todos los tipos" },
-  { value: "perfume", label: "Perfumes" },
-  { value: "body_splash", label: "Body Splash" },
-  { value: "crema", label: "Cremas" },
-  { value: "jabon", label: "Jabones" },
-  { value: "maquillaje", label: "Maquillaje" },
-];
-
-const TIPOS_JOYERIA = [
-  { value: "todos", label: "Todos los tipos" },
-  { value: "aros", label: "Aros" },
-  { value: "collar", label: "Collares" },
-  { value: "pulsera", label: "Pulseras" },
-  { value: "anillo", label: "Anillos" },
-  { value: "dije", label: "Dijes" },
-];
+const LABELS_TIPO = {
+  perfume: "Perfume",
+  body_splash: "Body Splash",
+  crema: "Crema",
+  jabon: "Jabón",
+  maquillaje: "Maquillaje",
+  desodorante: "Desodorante",
+  aros: "Aros",
+  collar: "Collar",
+  pulsera: "Pulsera",
+  anillo: "Anillo",
+  dije: "Dije",
+};
 
 const CATEGORIAS = [
   { value: "todas", label: "Todas" },
   { value: "mujer", label: "Mujer" },
   { value: "hombre", label: "Hombre" },
   { value: "infantil", label: "Infantil" },
+  { value: "unisex", label: "Unisex" },
 ];
 
 function normalizarTexto(str) {
@@ -128,8 +119,11 @@ function FotosCarrusel({ fotos, nombre }) {
   );
 }
 
-export default function Home({ initialPerfumes }) {
+export default function Home({ initialPerfumes, initialPreciosOcultos }) {
   const [perfumes, setPerfumes] = useState(initialPerfumes || []);
+  const [preciosOcultos, setPreciosOcultos] = useState(
+    initialPreciosOcultos || [],
+  );
   const [seccionActual, setSeccionActual] = useState(null);
   const [categoria, setCategoria] = useState("todas");
   const [tamano, setTamano] = useState("todos");
@@ -140,14 +134,30 @@ export default function Home({ initialPerfumes }) {
   const [tipo, setTipo] = useState("todos");
   const [favoritos, setFavoritos] = useState([]);
 
+  // Carga inicial y actualización de la configuración en el cliente
   useEffect(() => {
+    async function cargarConf() {
+      const { data } = await supabase
+        .from("configuracion")
+        .select("valor")
+        .eq("clave", "precios_ocultos")
+        .maybeSingle();
+      if (data?.valor && Array.isArray(data.valor)) {
+        setPreciosOcultos(data.valor);
+      }
+    }
+    cargarConf();
+
     const intervalo = setInterval(async () => {
-      const { data, error } = await supabase
+      const { data: pData } = await supabase
         .from("perfumes")
         .select("*")
         .order("created_at", { ascending: false });
-      if (!error && data) setPerfumes(data);
-    }, 30000);
+      if (pData) setPerfumes(pData);
+
+      cargarConf();
+    }, 15000);
+
     return () => clearInterval(intervalo);
   }, []);
 
@@ -177,6 +187,28 @@ export default function Home({ initialPerfumes }) {
     [perfumes, favoritos],
   );
 
+  // Comprueba si el precio está oculto según la sección y tipo
+  function tienePrecioOculto(p) {
+    if (Number(p.precio) === 0) return true;
+    const secs =
+      p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"];
+    const t = p.tipo || "perfume";
+
+    // Si estamos navegando dentro de una sección específica
+    if (seccionActual) {
+      return (
+        preciosOcultos.includes(`${seccionActual}:${t}`) ||
+        preciosOcultos.includes(t)
+      );
+    }
+
+    // Si estamos en búsqueda global o catálogo completo, oculta si alguna de sus secciones lo tiene oculto
+    return secs.some(
+      (sec) =>
+        preciosOcultos.includes(`${sec}:${t}`) || preciosOcultos.includes(t),
+    );
+  }
+
   function enviarPorWhatsapp() {
     const inmediatos = productosFavoritos.filter(
       (p) =>
@@ -195,7 +227,11 @@ export default function Home({ initialPerfumes }) {
     if (inmediatos.length > 0) {
       mensaje += "DISPONIBLES PARA RETIRAR HOY:\n";
       inmediatos.forEach((p) => {
-        mensaje += `• ${p.codigo ? `[${p.codigo}] ` : ""}${p.nombre} ${p.tamano ? `(${p.tamano})` : ""} - $${Number(p.precio).toLocaleString("es-AR")}\n`;
+        const oculto = tienePrecioOculto(p);
+        const precioTxt = oculto
+          ? "Consultar precio"
+          : `$${Number(p.precio).toLocaleString("es-AR")}`;
+        mensaje += `• ${p.codigo ? `[${p.codigo}] ` : ""}${p.nombre} ${p.tamano ? `(${p.tamano})` : ""} - ${precioTxt}\n`;
       });
       mensaje += "\n";
     }
@@ -203,9 +239,13 @@ export default function Home({ initialPerfumes }) {
     if (encargo.length > 0) {
       mensaje += "PARA ENCARGAR (ABONO PREVIO COMPLETO):\n";
       encargo.forEach((p) => {
-        mensaje += `• ${p.codigo ? `[${p.codigo}] ` : ""}${p.nombre} ${p.tamano ? `(${p.tamano})` : ""} - $${Number(p.precio).toLocaleString("es-AR")}\n`;
+        const oculto = tienePrecioOculto(p);
+        const precioTxt = oculto
+          ? "Consultar precio"
+          : `$${Number(p.precio).toLocaleString("es-AR")}`;
+        mensaje += `• ${p.codigo ? `[${p.codigo}] ` : ""}${p.nombre} ${p.tamano ? `(${p.tamano})` : ""} - ${precioTxt}\n`;
       });
-      mensaje += "\n¿Me confirmás los datos de transferencia para coordinar?\n";
+      mensaje += "\n¿Me confirmás para coordinar?\n";
     }
 
     const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
@@ -214,21 +254,60 @@ export default function Home({ initialPerfumes }) {
 
   const esBusquedaActiva = busqueda.trim().length > 0;
 
-  const tamanos = useMemo(() => {
-    const listaRelevante = seccionActual
-      ? perfumes.filter((p) =>
-          (p.secciones || ["perfumeria"]).includes(seccionActual),
-        )
-      : perfumes;
-    const s = new Set(listaRelevante.map((p) => p.tamano).filter(Boolean));
-    return ["todos", ...Array.from(s)];
+  const productosBaseSeccion = useMemo(() => {
+    if (!seccionActual) return perfumes;
+    return perfumes.filter((p) => {
+      const secs =
+        p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"];
+      return secs.includes(seccionActual);
+    });
   }, [perfumes, seccionActual]);
 
   const tiposDisponibles = useMemo(() => {
-    if (seccionActual === "perfumeria") return TIPOS_PERFUMERIA;
-    if (seccionActual === "joyeria") return TIPOS_JOYERIA;
-    return TIPOS_COSMETICA;
-  }, [seccionActual]);
+    const tiposEncontrados = new Set(
+      productosBaseSeccion
+        .filter(
+          (p) =>
+            (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) !==
+            "agotado",
+        )
+        .map((p) => p.tipo || "perfume"),
+    );
+
+    const lista = [{ value: "todos", label: "Todos los tipos" }];
+    tiposEncontrados.forEach((t) => {
+      lista.push({ value: t, label: LABELS_TIPO[t] || t });
+    });
+    return lista;
+  }, [productosBaseSeccion]);
+
+  const categoriasDisponibles = useMemo(() => {
+    const catsEncontradas = new Set(
+      productosBaseSeccion
+        .filter(
+          (p) =>
+            (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) !==
+            "agotado",
+        )
+        .map((p) => p.categoria)
+        .filter(Boolean),
+    );
+
+    const lista = [{ value: "todas", label: "Todas" }];
+    CATEGORIAS.filter((c) => c.value !== "todas").forEach((c) => {
+      if (catsEncontradas.has(c.value)) {
+        lista.push(c);
+      }
+    });
+    return lista;
+  }, [productosBaseSeccion]);
+
+  const tamanos = useMemo(() => {
+    const s = new Set(
+      productosBaseSeccion.map((p) => p.tamano).filter(Boolean),
+    );
+    return ["todos", ...Array.from(s)];
+  }, [productosBaseSeccion]);
 
   const filtrados = useMemo(() => {
     const lista = perfumes.filter((p) => {
@@ -242,7 +321,10 @@ export default function Home({ initialPerfumes }) {
         if (!secs.includes(seccionActual)) return false;
       }
 
-      if (seccionActual === "perfumeria" && categoria !== "todas") {
+      if (
+        (seccionActual === "perfumeria" || seccionActual === "joyeria") &&
+        categoria !== "todas"
+      ) {
         if (p.categoria !== categoria) return false;
       }
 
@@ -486,35 +568,40 @@ export default function Home({ initialPerfumes }) {
                 </button>
               </div>
 
-              <div className="filter-group">
-                <span className="filter-label">Tipo</span>
-                {tiposDisponibles.map((t) => (
-                  <button
-                    key={t.value}
-                    className={`pill ${tipo === t.value ? "active" : ""}`}
-                    onClick={() => setTipo(t.value)}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-
-              {seccionActual === "perfumeria" && !esBusquedaActiva && (
+              {tiposDisponibles.length > 2 && (
                 <div className="filter-group">
-                  <span className="filter-label">Categoría</span>
-                  {CATEGORIAS.map((c) => (
+                  <span className="filter-label">Tipo</span>
+                  {tiposDisponibles.map((t) => (
                     <button
-                      key={c.value}
-                      className={`pill ${categoria === c.value ? "active" : ""}`}
-                      onClick={() => setCategoria(c.value)}
+                      key={t.value}
+                      className={`pill ${tipo === t.value ? "active" : ""}`}
+                      onClick={() => setTipo(t.value)}
                     >
-                      {c.label}
+                      {t.label}
                     </button>
                   ))}
                 </div>
               )}
 
-              {tamanos.length > 1 && (
+              {(seccionActual === "perfumeria" ||
+                seccionActual === "joyeria") &&
+                !esBusquedaActiva &&
+                categoriasDisponibles.length > 2 && (
+                  <div className="filter-group">
+                    <span className="filter-label">Categoría</span>
+                    {categoriasDisponibles.map((c) => (
+                      <button
+                        key={c.value}
+                        className={`pill ${categoria === c.value ? "active" : ""}`}
+                        onClick={() => setCategoria(c.value)}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+              {tamanos.length > 2 && (
                 <div className="filter-group">
                   <span className="filter-label">Tamaño</span>
                   {tamanos.map((t) => (
@@ -555,6 +642,10 @@ export default function Home({ initialPerfumes }) {
                       : ["perfumeria"];
                   const disp =
                     p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
+                  const tipoActual = p.tipo || "perfume";
+                  const esPerfumeriaOBs =
+                    tipoActual === "perfume" || tipoActual === "body_splash";
+                  const precioOculto = tienePrecioOculto(p);
 
                   return (
                     <div className="card" key={p.id}>
@@ -577,16 +668,22 @@ export default function Home({ initialPerfumes }) {
                             );
                           })}
 
-                          {p.tipo && p.tipo !== "perfume" && (
-                            <span className="card-badge-tipo">{p.tipo}</span>
+                          {p.tipo && (
+                            <span className="card-badge-tipo">
+                              {LABELS_TIPO[p.tipo] ||
+                                p.tipo.charAt(0).toUpperCase() +
+                                  p.tipo.slice(1)}
+                            </span>
                           )}
                           {p.en_promo && (
                             <span className="card-badge-promo">🏷️ Promo</span>
                           )}
                         </div>
-                        {p.codigo && (
+
+                        {esPerfumeriaOBs && p.codigo && (
                           <span className="card-codigo-bubble">{p.codigo}</span>
                         )}
+
                         <button
                           className="fav-btn"
                           onClick={() => toggleFavorito(p.id)}
@@ -606,26 +703,30 @@ export default function Home({ initialPerfumes }) {
                           {p.tamano && p.marca && <span className="card-dot" />}
                           <span>{p.marca || "Sin marca"}</span>
                         </div>
-                        {p.en_promo && p.precio_anterior > p.precio && (
-                          <div className="card-descuento-row">
-                            <span className="card-price-old">
-                              $
-                              {Number(p.precio_anterior).toLocaleString(
-                                "es-AR",
-                              )}
-                            </span>
-                            <span className="card-discount-badge">
-                              -
-                              {Math.round(
-                                100 -
-                                  (Number(p.precio) /
-                                    Number(p.precio_anterior)) *
-                                    100,
-                              )}
-                              %
-                            </span>
-                          </div>
-                        )}
+
+                        {!precioOculto &&
+                          p.en_promo &&
+                          p.precio_anterior > p.precio && (
+                            <div className="card-descuento-row">
+                              <span className="card-price-old">
+                                $
+                                {Number(p.precio_anterior).toLocaleString(
+                                  "es-AR",
+                                )}
+                              </span>
+                              <span className="card-discount-badge">
+                                -
+                                {Math.round(
+                                  100 -
+                                    (Number(p.precio) /
+                                      Number(p.precio_anterior)) *
+                                      100,
+                                )}
+                                %
+                              </span>
+                            </div>
+                          )}
+
                         <div
                           className="card-footer"
                           style={{
@@ -643,7 +744,9 @@ export default function Home({ initialPerfumes }) {
                             }}
                           >
                             <span className="card-price">
-                              ${Number(p.precio).toLocaleString("es-AR")}
+                              {precioOculto
+                                ? "Consultar precio"
+                                : `$${Number(p.precio).toLocaleString("es-AR")}`}
                             </span>
                             <span
                               className={`card-stock ${disp === "encargo" ? "out" : ""}`}
@@ -700,14 +803,21 @@ export default function Home({ initialPerfumes }) {
 }
 
 export async function getServerSideProps() {
-  const { data, error } = await supabase
+  const { data: perfumes } = await supabase
     .from("perfumes")
     .select("*")
     .order("created_at", { ascending: false });
 
+  const { data: conf } = await supabase
+    .from("configuracion")
+    .select("valor")
+    .eq("clave", "precios_ocultos")
+    .maybeSingle();
+
   return {
     props: {
-      initialPerfumes: error ? [] : data,
+      initialPerfumes: perfumes || [],
+      initialPreciosOcultos: conf?.valor || [],
     },
   };
 }
