@@ -214,10 +214,17 @@ button {
   object-fit: cover;
 }
 
-.card-badge {
+.card-badges-left {
   position: absolute;
   top: 10px;
   left: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.card-badge {
   background: rgba(43, 35, 32, 0.82);
   color: var(--ivory);
   font-size: 10px;
@@ -307,15 +314,21 @@ button {
 }
 
 .card-badge-promo {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  margin-top: 26px;
   background: var(--gold);
   color: var(--charcoal);
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.card-badge-tipo {
+  background: rgba(255, 253, 251, 0.92);
+  color: var(--charcoal);
+  font-size: 10px;
+  letter-spacing: 0.04em;
   padding: 4px 9px;
   border-radius: 999px;
   font-weight: 700;
@@ -810,4 +823,125 @@ tr:last-child td {
   gap: 6px;
   font-size: 12.5px;
   cursor: pointer;
+}
+
+
+/* ---- Selector de secciones ---- */
+
+.section-picker {
+  padding: 46px 0 70px;
+}
+
+.section-picker-title {
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.section-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.section-card {
+  position: relative;
+  min-height: 190px;
+  padding: 28px 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--charcoal);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.section-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--gold);
+  box-shadow: 0 16px 30px -20px rgba(43, 35, 32, 0.4);
+}
+
+.section-card-icon {
+  font-size: 42px;
+}
+
+.section-card-label {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.section-card-arrow {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  color: var(--gold);
+  font-size: 20px;
+}
+
+.catalog-navigation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 22px;
+  flex-wrap: wrap;
+}
+
+.search-global-hint {
+  font-size: 12px;
+  color: var(--charcoal-soft);
+}
+
+.section-checkboxes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.section-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+  background: var(--white);
+  font-size: 13px;
+}
+
+.section-checkbox.active {
+  border-color: var(--bordeaux);
+  background: #fbf2f5;
+}
+
+.section-checkbox input {
+  accent-color: var(--bordeaux);
+}
+
+@media (max-width: 900px) {
+  .section-picker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .section-picker-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-card {
+    min-height: 145px;
+  }
+
+  .section-checkboxes {
+    grid-template-columns: 1fr;
+  }
 }

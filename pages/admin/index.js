@@ -1,59 +1,65 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/router';
-import Head from 'next/head';
-import { supabase } from '../../lib/supabaseClient';
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/router";
+import Head from "next/head";
+import { supabase } from "../../lib/supabaseClient";
 
-const CATEGORIAS = [
-  { value: 'mujer', label: 'Mujer' },
-  { value: 'hombre', label: 'Hombre' },
-  { value: 'infantil', label: 'Infantil' },
+const SECCIONES_DISPONIBLES = [
+  { id: "perfumeria", label: "Perfumería" },
+  { id: "natura", label: "Natura" },
+  { id: "avon", label: "Avon" },
+  { id: "joyeria", label: "Joyería" },
 ];
 
-const TAMANOS = ['15ml', '30ml', '50ml', '75ml', '100ml', '150ml'];
+const CATEGORIAS = [
+  { value: "mujer", label: "Mujer" },
+  { value: "hombre", label: "Hombre" },
+  { value: "infantil", label: "Infantil" },
+];
+
+const TAMANOS = ["15ml", "30ml", "50ml", "75ml", "100ml", "150ml"];
 
 const FORM_VACIO = {
   id: null,
-  nombre: '',
-  marca: '',
-  precio: '',
-  precio_anterior: '',
-  categoria: 'mujer',
-  tamano: '30ml',
-  en_stock: true,
+  nombre: "",
+  marca: "",
+  precio: "",
+  precio_anterior: "",
+  categoria: "mujer",
+  tamano: "30ml",
+  tipo: "perfume",
+  secciones: ["perfumeria"],
+  disponibilidad: "inmediata",
   en_promo: false,
   fotos: [],
-  vencimiento: '',
-  codigo: '',
-  cantidad_stock: '',
+  vencimiento: "",
+  codigo: "",
+  cantidad_stock: "",
 };
 
 function estadoVencimiento(fecha) {
   if (!fecha) return null;
   const hoy = new Date();
-  const venc = new Date(fecha + 'T00:00:00');
+  const venc = new Date(fecha + "T00:00:00");
   const dias = Math.round((venc - hoy) / (1000 * 60 * 60 * 24));
-  if (dias < 0) return { texto: 'Vencido', clase: 'venc-vencido' };
-  if (dias <= 60) return { texto: `Vence en ${dias}d`, clase: 'venc-pronto' };
-  return { texto: venc.toLocaleDateString('es-AR'), clase: 'venc-ok' };
+  if (dias < 0) return { texto: "Vencido", clase: "venc-vencido" };
+  if (dias <= 60) return { texto: `Vence en ${dias}d`, clase: "venc-pronto" };
+  return { texto: venc.toLocaleDateString("es-AR"), clase: "venc-ok" };
 }
 
 function normalizarTexto(str) {
-  return (str || '')
+  return (str || "")
     .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 }
 
-// Busca códigos con el patrón LETRAS+NÚMEROS (ej. C004) y calcula
-// el último usado y el siguiente sugerido, respetando los ceros a la
-// izquierda (C004 -> C005, no C5).
 function calcularSiguienteCodigo(perfumes) {
   const regex = /^([A-Za-z]*)(\d+)$/;
   let mejor = null;
 
   perfumes.forEach((p) => {
-    const m = (p.codigo || '').trim().match(regex);
+    const m = (p.codigo || "").trim().match(regex);
     if (!m) return;
     const numero = parseInt(m[2], 10);
     if (!mejor || numero > mejor.numero) {
@@ -63,7 +69,7 @@ function calcularSiguienteCodigo(perfumes) {
 
   if (!mejor) return null;
 
-  const siguienteNum = String(mejor.numero + 1).padStart(mejor.digitos, '0');
+  const siguienteNum = String(mejor.numero + 1).padStart(mejor.digitos, "0");
   return {
     ultimo: mejor.texto,
     sugerido: `${mejor.prefijo}${siguienteNum}`,
@@ -77,20 +83,20 @@ export default function Admin() {
   const [form, setForm] = useState(FORM_VACIO);
   const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [busqueda, setBusqueda] = useState('');
+  const [error, setError] = useState("");
+  const [busqueda, setBusqueda] = useState("");
   const [ordenarPorVencimiento, setOrdenarPorVencimiento] = useState(false);
   const [ordenarPorCodigo, setOrdenarPorCodigo] = useState(false);
 
   const siguienteCodigo = useMemo(
     () => calcularSiguienteCodigo(perfumes),
-    [perfumes]
+    [perfumes],
   );
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
-        router.replace('/admin/login');
+        router.replace("/admin/login");
       } else {
         setChecking(false);
         cargarPerfumes();
@@ -100,25 +106,94 @@ export default function Admin() {
 
   const cargarPerfumes = useCallback(async () => {
     const { data, error: fetchError } = await supabase
-      .from('perfumes')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .from("perfumes")
+      .select("*")
+      .order("created_at", { ascending: false });
     if (!fetchError) setPerfumes(data);
   }, []);
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.replace('/admin/login');
+    router.replace("/admin/login");
+  }
+
+  // Tipos dinámicos según las secciones seleccionadas en el formulario
+  const tiposDisponibles = useMemo(() => {
+    const secs = form.secciones || [];
+    const esSoloJoyeria = secs.length === 1 && secs[0] === "joyeria";
+    const esSoloPerfumeria = secs.length === 1 && secs[0] === "perfumeria";
+
+    if (esSoloJoyeria) {
+      return [
+        { value: "aros", label: "Aros" },
+        { value: "collar", label: "Collar" },
+        { value: "pulsera", label: "Pulsera" },
+        { value: "anillo", label: "Anillo" },
+        { value: "dije", label: "Dije" },
+      ];
+    }
+
+    if (esSoloPerfumeria) {
+      return [
+        { value: "perfume", label: "Perfume" },
+        { value: "body_splash", label: "Body Splash" },
+      ];
+    }
+
+    // Natura, Avon o combinaciones (ej. Natura + Perfumería)
+    return [
+      { value: "perfume", label: "Perfume" },
+      { value: "body_splash", label: "Body Splash" },
+      { value: "crema", label: "Crema" },
+      { value: "jabon", label: "Jabón" },
+      { value: "maquillaje", label: "Maquillaje" },
+      { value: "aros", label: "Aros" },
+      { value: "collar", label: "Collar" },
+      { value: "pulsera", label: "Pulsera" },
+      { value: "anillo", label: "Anillo" },
+      { value: "dije", label: "Dije" },
+    ];
+  }, [form.secciones]);
+
+  function toggleSeccion(secId) {
+    const actuales = form.secciones || [];
+    const existe = actuales.includes(secId);
+    let nuevas = existe
+      ? actuales.filter((s) => s !== secId)
+      : [...actuales, secId];
+
+    if (nuevas.length === 0) nuevas = ["perfumeria"];
+
+    let nuevoTipo = form.tipo;
+    // Si queda únicamente Perfumería, restringir a perfume o body_splash
+    if (nuevas.length === 1 && nuevas[0] === "perfumeria") {
+      if (nuevoTipo !== "perfume" && nuevoTipo !== "body_splash") {
+        nuevoTipo = "perfume";
+      }
+    } else if (nuevas.length === 1 && nuevas[0] === "joyeria") {
+      if (
+        !["aros", "collar", "pulsera", "anillo", "dije"].includes(nuevoTipo)
+      ) {
+        nuevoTipo = "aros";
+      }
+    }
+
+    setForm({ ...form, secciones: nuevas, tipo: nuevoTipo });
   }
 
   function editar(p) {
     setForm({
       ...p,
-      cantidad_stock: p.cantidad_stock ?? '',
-      precio_anterior: p.precio_anterior ?? '',
+      cantidad_stock: p.cantidad_stock ?? "",
+      precio_anterior: p.precio_anterior ?? "",
+      tipo: p.tipo || "perfume",
+      disponibilidad:
+        p.disponibilidad || (p.en_stock ? "inmediata" : "encargo"),
+      secciones:
+        p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"],
     });
     setFiles([]);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function nuevo() {
@@ -127,8 +202,8 @@ export default function Admin() {
   }
 
   async function eliminar(id) {
-    if (!confirm('¿Borrar este perfume del catálogo?')) return;
-    await supabase.from('perfumes').delete().eq('id', id);
+    if (!confirm("¿Borrar este producto del catálogo?")) return;
+    await supabase.from("perfumes").delete().eq("id", id);
     cargarPerfumes();
   }
 
@@ -142,7 +217,7 @@ export default function Admin() {
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
-    setError('');
+    setError("");
 
     try {
       let fotos = form.fotos || [];
@@ -150,20 +225,19 @@ export default function Admin() {
       if (files.length > 0) {
         const urlsNuevas = [];
         for (const f of files) {
-          const ext = f.name.split('.').pop();
+          const ext = f.name.split(".").pop();
           const path = `${Date.now()}-${Math.random()
             .toString(36)
             .slice(2)}.${ext}`;
           const { error: uploadError } = await supabase.storage
-            .from('perfumes-fotos')
+            .from("perfumes-fotos")
             .upload(path, f);
           if (uploadError) throw uploadError;
           const { data: pub } = supabase.storage
-            .from('perfumes-fotos')
+            .from("perfumes-fotos")
             .getPublicUrl(path);
           urlsNuevas.push(pub.publicUrl);
         }
-        // Las fotos nuevas se agregan a las que ya tenía (si era edición)
         fotos = [...fotos, ...urlsNuevas];
       }
 
@@ -176,26 +250,32 @@ export default function Admin() {
             ? Number(form.precio_anterior)
             : null,
         categoria: form.categoria,
-        tamano: form.tamano,
-        en_stock: form.en_stock,
+        tamano: form.tamano || null,
+        tipo: form.tipo,
+        secciones:
+          form.secciones && form.secciones.length > 0
+            ? form.secciones
+            : ["perfumeria"],
+        disponibilidad: form.disponibilidad,
+        en_stock: form.disponibilidad === "inmediata",
         en_promo: form.en_promo,
         fotos,
         foto_url: fotos[0] || null,
         vencimiento: form.vencimiento || null,
         codigo: form.codigo || null,
         cantidad_stock:
-          form.cantidad_stock === '' ? null : Number(form.cantidad_stock),
+          form.cantidad_stock === "" ? null : Number(form.cantidad_stock),
       };
 
       if (form.id) {
         const { error: updateError } = await supabase
-          .from('perfumes')
+          .from("perfumes")
           .update(payload)
-          .eq('id', form.id);
+          .eq("id", form.id);
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase
-          .from('perfumes')
+          .from("perfumes")
           .insert(payload);
         if (insertError) throw insertError;
       }
@@ -203,7 +283,7 @@ export default function Admin() {
       nuevo();
       cargarPerfumes();
     } catch (err) {
-      setError(err.message || 'Algo salió mal, probá de nuevo.');
+      setError(err.message || "Algo salió mal, probá de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -222,10 +302,16 @@ export default function Admin() {
       );
     })
     .sort((a, b) => {
+      const dispA = a.disponibilidad || (a.en_stock ? "inmediata" : "encargo");
+      const dispB = b.disponibilidad || (b.en_stock ? "inmediata" : "encargo");
+
+      if (dispA !== dispB) {
+        return dispA === "inmediata" ? -1 : 1;
+      }
       if (ordenarPorCodigo) {
         if (!a.codigo) return 1;
         if (!b.codigo) return -1;
-        return a.codigo.localeCompare(b.codigo, 'es', { numeric: true });
+        return a.codigo.localeCompare(b.codigo, "es", { numeric: true });
       }
       if (ordenarPorVencimiento) {
         if (!a.vencimiento) return 1;
@@ -238,14 +324,19 @@ export default function Admin() {
   return (
     <div className="admin-shell">
       <Head>
-        <title>Admin — Catálogo de Perfumes</title>
+        <title>Admin — Catálogo General</title>
       </Head>
 
       <div className="admin-header">
         <div className="container">
-          <span className="admin-title serif">Panel de Perfumería</span>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <a className="btn btn-ghost btn-sm" href="/" target="_blank" rel="noreferrer">
+          <span className="admin-title serif">Panel de Administración</span>
+          <div style={{ display: "flex", gap: 10 }}>
+            <a
+              className="btn btn-ghost btn-sm"
+              href="/"
+              target="_blank"
+              rel="noreferrer"
+            >
               Ver catálogo público
             </a>
             <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
@@ -259,23 +350,64 @@ export default function Admin() {
         <div className="container admin-grid">
           <div className="panel">
             <div className="panel-title">
-              {form.id ? 'Editar perfume' : 'Agregar perfume'}
+              {form.id ? "Editar producto" : "Agregar producto"}
             </div>
             {error && <div className="error">{error}</div>}
             <form onSubmit={handleSubmit}>
               <div className="field">
+                <label>
+                  <strong>Secciones donde aparece</strong>
+                </label>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    marginTop: 6,
+                  }}
+                >
+                  {SECCIONES_DISPONIBLES.map((sec) => (
+                    <label
+                      key={sec.id}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        background: (form.secciones || []).includes(sec.id)
+                          ? "#f4e9df"
+                          : "#fafafa",
+                        border: `1px solid ${(form.secciones || []).includes(sec.id) ? "#6B1E3C" : "#ddd"}`,
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        fontSize: 13,
+                        fontWeight: (form.secciones || []).includes(sec.id)
+                          ? "600"
+                          : "normal",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={(form.secciones || []).includes(sec.id)}
+                        onChange={() => toggleSeccion(sec.id)}
+                      />
+                      {sec.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="field">
                 <label>Código (para el muestrario)</label>
                 <input
-                  value={form.codigo || ''}
-                  onChange={(e) =>
-                    setForm({ ...form, codigo: e.target.value })
-                  }
-                  placeholder="ej. P001"
+                  value={form.codigo || ""}
+                  onChange={(e) => setForm({ ...form, codigo: e.target.value })}
+                  placeholder="ej. P001, J001"
                 />
                 {siguienteCodigo && (
                   <div className="codigo-hint">
                     Último usado: <strong>{siguienteCodigo.ultimo}</strong>
-                    {' · '}
+                    {" · "}
                     <button
                       type="button"
                       className="codigo-hint-btn"
@@ -288,28 +420,28 @@ export default function Admin() {
                   </div>
                 )}
               </div>
+
               <div className="field">
-                <label>Nombre</label>
+                <label>Nombre del producto</label>
                 <input
                   value={form.nombre}
-                  onChange={(e) =>
-                    setForm({ ...form, nombre: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, nombre: e.target.value })}
                   required
                 />
               </div>
+
               <div className="field">
-                <label>Marca</label>
+                <label>Marca / Línea</label>
                 <input
                   value={form.marca}
-                  onChange={(e) =>
-                    setForm({ ...form, marca: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, marca: e.target.value })}
+                  placeholder="ej. Kaiak, Tododia, Acero quirúrgico"
                 />
               </div>
+
               <div className="field-row">
                 <div className="field">
-                  <label>Precio</label>
+                  <label>Precio ($)</label>
                   <input
                     type="number"
                     min="0"
@@ -321,16 +453,15 @@ export default function Admin() {
                   />
                 </div>
                 <div className="field">
-                  <label>Tamaño (ml)</label>
+                  <label>Tamaño / Medida (opcional)</label>
                   <input
                     type="text"
                     list="tamanos-sugeridos"
-                    placeholder="ej. 30ml, 45ml, 80ml"
-                    value={form.tamano}
+                    placeholder="ej. 100ml, 50cm"
+                    value={form.tamano || ""}
                     onChange={(e) =>
                       setForm({ ...form, tamano: e.target.value })
                     }
-                    required
                   />
                   <datalist id="tamanos-sugeridos">
                     {TAMANOS.map((t) => (
@@ -342,45 +473,87 @@ export default function Admin() {
                   <label>Vencimiento (opcional)</label>
                   <input
                     type="date"
-                    value={form.vencimiento || ''}
+                    value={form.vencimiento || ""}
                     onChange={(e) =>
                       setForm({ ...form, vencimiento: e.target.value })
                     }
                   />
                 </div>
               </div>
+
+              <div className="field-row">
+                <div className="field">
+                  <label>Tipo</label>
+                  <select
+                    value={form.tipo}
+                    onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+                  >
+                    {tiposDisponibles.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(form.secciones || []).includes("perfumeria") && (
+                  <div className="field">
+                    <label>Categoría (Perfumería)</label>
+                    <select
+                      value={form.categoria}
+                      onChange={(e) =>
+                        setForm({ ...form, categoria: e.target.value })
+                      }
+                    >
+                      {CATEGORIAS.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
               <div className="field">
-                <label>Categoría</label>
+                <label>Modalidad de disponibilidad</label>
                 <select
-                  value={form.categoria}
+                  value={form.disponibilidad}
                   onChange={(e) =>
-                    setForm({ ...form, categoria: e.target.value })
+                    setForm({ ...form, disponibilidad: e.target.value })
                   }
                 >
-                  {CATEGORIAS.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
+                  <option value="inmediata">
+                    Entrega inmediata (en stock físico)
+                  </option>
+                  <option value="encargo">
+                    Por encargo (con abono previo completo)
+                  </option>
+                  <option value="agotado">
+                    Agotado / Desactivado (no se muestra)
+                  </option>
                 </select>
               </div>
+
               <div className="field">
-                <label>Fotos (podés elegir 2 o más juntas)</label>
+                <label>Fotos</label>
                 <input
                   type="file"
                   accept="image/*"
                   multiple
                   onChange={(e) => setFiles(Array.from(e.target.files))}
                 />
-                <div className="hint">
-                  {form.id
-                    ? 'Las fotos nuevas se agregan a las que ya tenía.'
-                    : 'Seleccioná varias fotos con Ctrl (o Cmd en Mac) para subir más de una.'}
-                </div>
                 {form.fotos && form.fotos.length > 0 && (
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 6,
+                      marginTop: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
                     {form.fotos.map((url) => (
-                      <div key={url} style={{ position: 'relative' }}>
+                      <div key={url} style={{ position: "relative" }}>
                         <img src={url} alt="" className="thumb" />
                         <button
                           type="button"
@@ -395,6 +568,7 @@ export default function Admin() {
                   </div>
                 )}
               </div>
+
               <div className="field">
                 <label className="stock-toggle">
                   <input
@@ -408,7 +582,7 @@ export default function Admin() {
                 </label>
                 {form.en_promo && (
                   <div style={{ marginTop: 10 }}>
-                    <label>Precio anterior (se muestra tachado)</label>
+                    <label>Precio anterior (tachado)</label>
                     <input
                       type="number"
                       min="0"
@@ -418,59 +592,40 @@ export default function Admin() {
                       }
                       placeholder="ej. 39990"
                     />
-                    {form.precio && form.precio_anterior > 0 && (
-                      <div className="hint">
-                        Descuento:{' '}
-                        {Math.round(
-                          100 -
-                            (Number(form.precio) /
-                              Number(form.precio_anterior)) *
-                              100
-                        )}
-                        %
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
-              <div className="field">
-                <label>Cantidad en stock (opcional, solo para vos)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.cantidad_stock}
-                  onChange={(e) =>
-                    setForm({ ...form, cantidad_stock: e.target.value })
-                  }
-                  placeholder="ej. 3"
-                />
-              </div>
-              <div className="field">
-                <label className="stock-toggle">
-                  <input
-                    type="checkbox"
-                    checked={form.en_stock}
-                    onChange={(e) =>
-                      setForm({ ...form, en_stock: e.target.checked })
-                    }
-                  />
-                  Disponible para retirar
-                </label>
-              </div>
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              {form.disponibilidad === "inmediata" && (
+                <div className="field">
+                  <label>
+                    Cantidad en stock físico (opcional, uso interno)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.cantidad_stock}
+                    onChange={(e) =>
+                      setForm({ ...form, cantidad_stock: e.target.value })
+                    }
+                    placeholder="ej. 3"
+                  />
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
                 <button className="btn btn-primary" disabled={saving}>
                   {saving
-                    ? 'Guardando…'
+                    ? "Guardando…"
                     : form.id
-                    ? 'Guardar cambios'
-                    : 'Agregar al catálogo'}
+                      ? "Guardar cambios"
+                      : "Agregar al catálogo"}
                 </button>
                 {form.id && (
                   <button
                     type="button"
                     className="btn btn-ghost"
-                    style={{ borderColor: '#ddd', color: '#6b5f57' }}
+                    style={{ borderColor: "#ddd", color: "#6b5f57" }}
                     onClick={nuevo}
                   >
                     Cancelar
@@ -484,13 +639,13 @@ export default function Admin() {
             <div className="table-toolbar">
               <input
                 type="text"
-                placeholder="Buscar por nombre o marca…"
+                placeholder="Buscar por nombre, código o marca…"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 className="search-input"
               />
               <button
-                className={`pill ${ordenarPorVencimiento ? 'active' : ''}`}
+                className={`pill ${ordenarPorVencimiento ? "active" : ""}`}
                 onClick={() => {
                   setOrdenarPorVencimiento((v) => !v);
                   setOrdenarPorCodigo(false);
@@ -499,7 +654,7 @@ export default function Admin() {
                 Ordenar por vencimiento
               </button>
               <button
-                className={`pill ${ordenarPorCodigo ? 'active' : ''}`}
+                className={`pill ${ordenarPorCodigo ? "active" : ""}`}
                 onClick={() => {
                   setOrdenarPorCodigo((v) => !v);
                   setOrdenarPorVencimiento(false);
@@ -514,18 +669,25 @@ export default function Admin() {
                   <th></th>
                   <th>Código</th>
                   <th>Nombre</th>
-                  <th>Categoría</th>
-                  <th>Tamaño</th>
+                  <th>Secciones</th>
+                  <th>Tipo</th>
                   <th>Precio</th>
                   <th>Vencimiento</th>
                   <th>Promo</th>
-                  <th>Stock</th>
+                  <th>Disponibilidad</th>
                   <th className="col-actions-header">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {perfumesVisibles.map((p) => {
                   const venc = estadoVencimiento(p.vencimiento);
+                  const secs =
+                    p.secciones && p.secciones.length > 0
+                      ? p.secciones
+                      : ["perfumeria"];
+                  const disp =
+                    p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
+
                   return (
                     <tr key={p.id}>
                       <td>
@@ -537,45 +699,69 @@ export default function Admin() {
                         {p.codigo ? (
                           <span className="codigo-bubble">{p.codigo}</span>
                         ) : (
-                          '—'
+                          "—"
                         )}
                       </td>
                       <td>
                         <strong>{p.nombre}</strong>
-                        <div style={{ fontSize: 11, color: '#6b5f57' }}>
+                        <div style={{ fontSize: 11, color: "#6b5f57" }}>
                           {p.marca}
                         </div>
                       </td>
                       <td>
-                        {CATEGORIAS.find((c) => c.value === p.categoria)
-                          ?.label || p.categoria}
+                        <div
+                          style={{ display: "flex", gap: 4, flexWrap: "wrap" }}
+                        >
+                          {secs.map((s) => (
+                            <span
+                              key={s}
+                              style={{
+                                fontSize: 11,
+                                background: "#eee",
+                                padding: "2px 5px",
+                                borderRadius: 4,
+                              }}
+                            >
+                              {s}
+                            </span>
+                          ))}
+                        </div>
                       </td>
-                      <td>{p.tamano}</td>
-                      <td>${Number(p.precio).toLocaleString('es-AR')}</td>
+                      <td style={{ textTransform: "capitalize" }}>
+                        {p.tipo || "perfume"}
+                      </td>
+                      <td>${Number(p.precio).toLocaleString("es-AR")}</td>
                       <td>
                         {venc ? (
                           <span className={`venc-badge ${venc.clase}`}>
                             {venc.texto}
                           </span>
                         ) : (
-                          '—'
+                          "—"
                         )}
                       </td>
-                      <td>{p.en_promo ? '🏷️' : '—'}</td>
+                      <td>{p.en_promo ? "🏷️" : "—"}</td>
                       <td>
-                        {p.en_stock ? '✅' : '—'}
-                        {p.cantidad_stock != null && (
-                          <span className="stock-qty">
-                            {' '}
-                            ({p.cantidad_stock})
+                        {disp === "inmediata" && (
+                          <span style={{ color: "#2e7d32", fontWeight: 600 }}>
+                            Inmediata{" "}
+                            {p.cantidad_stock ? `(${p.cantidad_stock})` : ""}
                           </span>
+                        )}
+                        {disp === "encargo" && (
+                          <span style={{ color: "#6B1E3C", fontWeight: 500 }}>
+                            Por encargo
+                          </span>
+                        )}
+                        {disp === "agotado" && (
+                          <span style={{ color: "#888" }}>Agotado</span>
                         )}
                       </td>
                       <td className="col-actions">
                         <div className="row-actions">
                           <button
                             className="btn btn-ghost btn-sm"
-                            style={{ borderColor: '#ddd', color: '#2b2320' }}
+                            style={{ borderColor: "#ddd", color: "#2b2320" }}
                             onClick={() => editar(p)}
                           >
                             Editar
@@ -593,10 +779,13 @@ export default function Admin() {
                 })}
                 {perfumesVisibles.length === 0 && (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: 'center', padding: 30 }}>
+                    <td
+                      colSpan={10}
+                      style={{ textAlign: "center", padding: 30 }}
+                    >
                       {busqueda
-                        ? 'Ningún perfume coincide con la búsqueda.'
-                        : 'Todavía no cargaste ningún perfume.'}
+                        ? "Ningún producto coincide con la búsqueda."
+                        : "Todavía no cargaste ningún producto."}
                     </td>
                   </tr>
                 )}
