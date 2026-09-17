@@ -14,6 +14,7 @@ const CATEGORIAS = [
   { value: "mujer", label: "Mujer" },
   { value: "hombre", label: "Hombre" },
   { value: "infantil", label: "Infantil" },
+  { value: "unisex", label: "Unisex / Sin género" },
 ];
 
 const TAMANOS = ["15ml", "30ml", "50ml", "75ml", "100ml", "150ml"];
@@ -249,7 +250,7 @@ export default function Admin() {
           form.en_promo && form.precio_anterior
             ? Number(form.precio_anterior)
             : null,
-        categoria: form.categoria,
+        categoria: form.categoria || null,
         tamano: form.tamano || null,
         tipo: form.tipo,
         secciones:
@@ -496,23 +497,22 @@ export default function Admin() {
                   </select>
                 </div>
 
-                {(form.secciones || []).includes("perfumeria") && (
-                  <div className="field">
-                    <label>Categoría (Perfumería)</label>
-                    <select
-                      value={form.categoria}
-                      onChange={(e) =>
-                        setForm({ ...form, categoria: e.target.value })
-                      }
-                    >
-                      {CATEGORIAS.map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <div className="field">
+                  <label>Categoría / Público (opcional)</label>
+                  <select
+                    value={form.categoria || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, categoria: e.target.value || null })
+                    }
+                  >
+                    <option value="">Sin categoría específica</option>
+                    {CATEGORIAS.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="field">
