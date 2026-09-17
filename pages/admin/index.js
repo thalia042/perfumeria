@@ -17,18 +17,32 @@ const CATEGORIAS = [
   { value: "unisex", label: "Unisex / Sin género" },
 ];
 
+const TODOS_LOS_TIPOS = [
+  { value: "perfume", label: "Perfume" },
+  { value: "body_splash", label: "Body Splash" },
+  { value: "crema", label: "Crema" },
+  { value: "jabon", label: "Jabón" },
+  { value: "desodorante", label: "Desodorante / Antitranspirante" },
+  { value: "maquillaje", label: "Maquillaje" },
+  { value: "aros", label: "Aros" },
+  { value: "collar", label: "Collar" },
+  { value: "pulsera", label: "Pulsera" },
+  { value: "anillo", label: "Anillo" },
+  { value: "dije", label: "Dije" },
+];
+
 const TAMANOS = ["15ml", "30ml", "50ml", "75ml", "100ml", "150ml"];
 
 const FORM_VACIO = {
   id: null,
-  nombre: "",
+  nombre: "A",
   marca: "",
-  precio: "",
+  precio: 0,
   precio_anterior: "",
-  categoria: "mujer",
-  tamano: "30ml",
-  tipo: "perfume",
-  secciones: ["perfumeria"],
+  categoria: "",
+  tamano: "",
+  tipo: "crema",
+  secciones: ["natura"],
   disponibilidad: "inmediata",
   en_promo: false,
   fotos: [],
@@ -81,6 +95,7 @@ export default function Admin() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [perfumes, setPerfumes] = useState([]);
+  const [preciosOcultos, setPreciosOcultos] = useState([]);
   const [form, setForm] = useState(FORM_VACIO);
   const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -101,24 +116,45 @@ export default function Admin() {
       } else {
         setChecking(false);
         cargarPerfumes();
+        cargarConfiguracion();
       }
     });
   }, [router]);
 
   const cargarPerfumes = useCallback(async () => {
-    const { data, error: fetchError } = await supabase
+    const { data } = await supabase
       .from("perfumes")
       .select("*")
       .order("created_at", { ascending: false });
-    if (!fetchError) setPerfumes(data);
+    if (data) setPerfumes(data);
   }, []);
+
+  const cargarConfiguracion = useCallback(async () => {
+    const { data } = await supabase
+      .from("configuracion")
+      .select("valor")
+      .eq("clave", "precios_ocultos")
+      .maybeSingle();
+    if (data?.valor) setPreciosOcultos(data.valor);
+  }, []);
+
+  async function toggleOcultarPrecio(tipo) {
+    const nuevo = preciosOcultos.includes(tipo)
+      ? preciosOcultos.filter((t) => t !== tipo)
+      : [...preciosOcultos, tipo];
+
+    setPreciosOcultos(nuevo);
+    await supabase.from("configuracion").upsert({
+      clave: "precios_ocultos",
+      valor: nuevo,
+    });
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
     router.replace("/admin/login");
   }
 
-  // Tipos dinámicos según las secciones seleccionadas en el formulario
   const tiposDisponibles = useMemo(() => {
     const secs = form.secciones || [];
     const esSoloJoyeria = secs.length === 1 && secs[0] === "joyeria";
@@ -141,19 +177,7 @@ export default function Admin() {
       ];
     }
 
-    // Natura, Avon o combinaciones (ej. Natura + Perfumería)
-    return [
-      { value: "perfume", label: "Perfume" },
-      { value: "body_splash", label: "Body Splash" },
-      { value: "crema", label: "Crema" },
-      { value: "jabon", label: "Jabón" },
-      { value: "maquillaje", label: "Maquillaje" },
-      { value: "aros", label: "Aros" },
-      { value: "collar", label: "Collar" },
-      { value: "pulsera", label: "Pulsera" },
-      { value: "anillo", label: "Anillo" },
-      { value: "dije", label: "Dije" },
-    ];
+    return TODOS_LOS_TIPOS;
   }, [form.secciones]);
 
   function toggleSeccion(secId) {
@@ -162,11 +186,9 @@ export default function Admin() {
     let nuevas = existe
       ? actuales.filter((s) => s !== secId)
       : [...actuales, secId];
-
     if (nuevas.length === 0) nuevas = ["perfumeria"];
 
     let nuevoTipo = form.tipo;
-    // Si queda únicamente Perfumería, restringir a perfume o body_splash
     if (nuevas.length === 1 && nuevas[0] === "perfumeria") {
       if (nuevoTipo !== "perfume" && nuevoTipo !== "body_splash") {
         nuevoTipo = "perfume";
@@ -188,6 +210,7 @@ export default function Admin() {
       cantidad_stock: p.cantidad_stock ?? "",
       precio_anterior: p.precio_anterior ?? "",
       tipo: p.tipo || "perfume",
+      categoria: p.categoria || "",
       disponibilidad:
         p.disponibilidad || (p.en_stock ? "inmediata" : "encargo"),
       secciones:
@@ -227,9 +250,7 @@ export default function Admin() {
         const urlsNuevas = [];
         for (const f of files) {
           const ext = f.name.split(".").pop();
-          const path = `${Date.now()}-${Math.random()
-            .toString(36)
-            .slice(2)}.${ext}`;
+          const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
           const { error: uploadError } = await supabase.storage
             .from("perfumes-fotos")
             .upload(path, f);
@@ -242,10 +263,13 @@ export default function Admin() {
         fotos = [...fotos, ...urlsNuevas];
       }
 
+      const esFragancia =
+        form.tipo === "perfume" || form.tipo === "body_splash";
+
       const payload = {
-        nombre: form.nombre,
+        nombre: form.nombre || "A",
         marca: form.marca,
-        precio: Number(form.precio),
+        precio: Number(form.precio) || 0,
         precio_anterior:
           form.en_promo && form.precio_anterior
             ? Number(form.precio_anterior)
@@ -263,7 +287,7 @@ export default function Admin() {
         fotos,
         foto_url: fotos[0] || null,
         vencimiento: form.vencimiento || null,
-        codigo: form.codigo || null,
+        codigo: esFragancia ? form.codigo || null : null, // Código solo para perfumes o body splash
         cantidad_stock:
           form.cantidad_stock === "" ? null : Number(form.cantidad_stock),
       };
@@ -291,6 +315,8 @@ export default function Admin() {
   }
 
   if (checking) return null;
+
+  const esFragancia = form.tipo === "perfume" || form.tipo === "body_splash";
 
   const perfumesVisibles = perfumes
     .filter((p) => {
@@ -348,6 +374,35 @@ export default function Admin() {
       </div>
 
       <div className="admin-body">
+        <div className="container" style={{ marginBottom: 20 }}>
+          {/* MÓDULO PARA ESCONDER PRECIOS */}
+          <div className="panel" style={{ padding: 16 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>
+              Esconder precios mientras actualizás (se mostrará &quot;Consultar
+              precio&quot;):
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {TODOS_LOS_TIPOS.map((t) => {
+                const oculto = preciosOcultos.includes(t.value);
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    className={`pill ${oculto ? "active" : ""}`}
+                    style={{
+                      background: oculto ? "#6B1E3C" : "#fff",
+                      color: oculto ? "#fff" : "#2b2320",
+                    }}
+                    onClick={() => toggleOcultarPrecio(t.value)}
+                  >
+                    {oculto ? `🙈 ${t.label} (Oculto)` : `👁️ ${t.label}`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         <div className="container admin-grid">
           <div className="panel">
             <div className="panel-title">
@@ -398,29 +453,34 @@ export default function Admin() {
                 </div>
               </div>
 
-              <div className="field">
-                <label>Código (para el muestrario)</label>
-                <input
-                  value={form.codigo || ""}
-                  onChange={(e) => setForm({ ...form, codigo: e.target.value })}
-                  placeholder="ej. P001, J001"
-                />
-                {siguienteCodigo && (
-                  <div className="codigo-hint">
-                    Último usado: <strong>{siguienteCodigo.ultimo}</strong>
-                    {" · "}
-                    <button
-                      type="button"
-                      className="codigo-hint-btn"
-                      onClick={() =>
-                        setForm({ ...form, codigo: siguienteCodigo.sugerido })
-                      }
-                    >
-                      Usar {siguienteCodigo.sugerido}
-                    </button>
-                  </div>
-                )}
-              </div>
+              {/* El código sólo se muestra si es Perfume o Body Splash */}
+              {esFragancia && (
+                <div className="field">
+                  <label>Código del perfume / muestra</label>
+                  <input
+                    value={form.codigo || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, codigo: e.target.value })
+                    }
+                    placeholder="ej. C001, P001"
+                  />
+                  {siguienteCodigo && (
+                    <div className="codigo-hint">
+                      Último usado: <strong>{siguienteCodigo.ultimo}</strong>
+                      {" · "}
+                      <button
+                        type="button"
+                        className="codigo-hint-btn"
+                        onClick={() =>
+                          setForm({ ...form, codigo: siguienteCodigo.sugerido })
+                        }
+                      >
+                        Usar {siguienteCodigo.sugerido}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="field">
                 <label>Nombre del producto</label>
@@ -432,11 +492,11 @@ export default function Admin() {
               </div>
 
               <div className="field">
-                <label>Marca / Línea</label>
+                <label>Marca / Línea / Detalle</label>
                 <input
                   value={form.marca}
                   onChange={(e) => setForm({ ...form, marca: e.target.value })}
-                  placeholder="ej. Kaiak, Tododia, Acero quirúrgico"
+                  placeholder="ej. Ekos, Kaiak, Acero quirúrgico"
                 />
               </div>
 
@@ -458,7 +518,7 @@ export default function Admin() {
                   <input
                     type="text"
                     list="tamanos-sugeridos"
-                    placeholder="ej. 100ml, 50cm"
+                    placeholder="ej. 100ml, 75g, 50cm"
                     value={form.tamano || ""}
                     onChange={(e) =>
                       setForm({ ...form, tamano: e.target.value })
@@ -687,6 +747,8 @@ export default function Admin() {
                       : ["perfumeria"];
                   const disp =
                     p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
+                  const esFrag =
+                    p.tipo === "perfume" || p.tipo === "body_splash";
 
                   return (
                     <tr key={p.id}>
@@ -696,7 +758,7 @@ export default function Admin() {
                         )}
                       </td>
                       <td>
-                        {p.codigo ? (
+                        {esFrag && p.codigo ? (
                           <span className="codigo-bubble">{p.codigo}</span>
                         ) : (
                           "—"
@@ -730,7 +792,13 @@ export default function Admin() {
                       <td style={{ textTransform: "capitalize" }}>
                         {p.tipo || "perfume"}
                       </td>
-                      <td>${Number(p.precio).toLocaleString("es-AR")}</td>
+                      <td>
+                        {Number(p.precio) === 0 ? (
+                          <span style={{ color: "#888" }}>Sin precio ($0)</span>
+                        ) : (
+                          `$${Number(p.precio).toLocaleString("es-AR")}`
+                        )}
+                      </td>
                       <td>
                         {venc ? (
                           <span className={`venc-badge ${venc.clase}`}>
