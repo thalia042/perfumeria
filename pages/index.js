@@ -10,21 +10,29 @@ const SECCIONES = [
     id: "perfumeria",
     nombre: "Perfumería",
     descripcion: "Fragancias para mujer, hombre e infantil",
+    imagen:
+      "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=700&q=80&auto=format&fit=crop",
   },
   {
     id: "natura",
     nombre: "Natura",
     descripcion: "Líneas de cuidado diario, repuestos y perfumería",
+    imagen:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=700&q=80&auto=format&fit=crop",
   },
   {
     id: "avon",
     nombre: "Avon",
     descripcion: "Cosmética, fragancias y cuidado de la piel",
+    imagen:
+      "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=700&q=80&auto=format&fit=crop",
   },
   {
     id: "joyeria",
     nombre: "Perla Negra",
     descripcion: "Aros, collares, anillos, dijes y conjuntos de acero",
+    imagen:
+      "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=700&q=80&auto=format&fit=crop",
   },
 ];
 
@@ -466,15 +474,7 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
         )}
 
         {!seccionActual && !esBusquedaActiva ? (
-          <div
-            className="secciones-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: 20,
-              margin: "30px 0",
-            }}
-          >
+          <div className="secciones-grid">
             {SECCIONES.map((sec) => {
               const cant = perfumes.filter((p) => {
                 const s =
@@ -489,32 +489,18 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
               return (
                 <div
                   key={sec.id}
-                  className="seccion-card card"
+                  className="seccion-banner-card"
                   onClick={() => cambiarSeccion(sec.id)}
-                  style={{
-                    cursor: "pointer",
-                    padding: 28,
-                    textAlign: "center",
-                  }}
+                  style={{ backgroundImage: `url(${sec.imagen})` }}
                 >
-                  <h2
-                    className="serif"
-                    style={{ margin: "0 0 10px 0", fontSize: 24 }}
-                  >
-                    {sec.nombre}
-                  </h2>
-                  <p
-                    style={{
-                      fontSize: 14,
-                      color: "#6b5f57",
-                      margin: "0 0 16px 0",
-                    }}
-                  >
-                    {sec.descripcion}
-                  </p>
-                  <span className="pill" style={{ pointerEvents: "none" }}>
-                    {cant} {cant === 1 ? "artículo" : "artículos"}
-                  </span>
+                  <div className="seccion-banner-overlay" />
+                  <div className="seccion-banner-content">
+                    <h2 className="serif seccion-banner-title">{sec.nombre}</h2>
+                    <p className="seccion-banner-desc">{sec.descripcion}</p>
+                    <span className="seccion-banner-pill">
+                      {cant} {cant === 1 ? "artículo" : "artículos"}
+                    </span>
+                  </div>
                 </div>
               );
             })}
