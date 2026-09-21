@@ -7,7 +7,7 @@ const SECCIONES_DISPONIBLES = [
   { id: "perfumeria", label: "Perfumería" },
   { id: "natura", label: "Natura" },
   { id: "avon", label: "Avon" },
-  { id: "joyeria", label: "Joyería" },
+  { id: "joyeria", label: "Perla Negra" },
 ];
 
 const CATEGORIAS = [
@@ -44,6 +44,7 @@ const TIPOS_POR_SECCION = {
     { value: "pulsera", label: "Pulsera" },
     { value: "anillo", label: "Anillo" },
     { value: "dije", label: "Dije" },
+    { value: "conjunto", label: "Conjunto" },
   ],
 };
 
@@ -59,6 +60,7 @@ const TODOS_LOS_TIPOS = [
   { value: "pulsera", label: "Pulsera" },
   { value: "anillo", label: "Anillo" },
   { value: "dije", label: "Dije" },
+  { value: "conjunto", label: "Conjunto" },
 ];
 
 const FORM_VACIO = {
@@ -108,6 +110,59 @@ function calcularSiguienteCodigo(perfumes) {
     sugerido: `${mejor.prefijo}${siguienteNum}`,
   };
 }
+// Compresión segura que no rompe la subida si falla el canvas
+async function comprimirImagen(archivo, maxWidth = 1000, calidad = 0.75) {
+  if (!archivo || !archivo.type.startsWith("image/")) {
+    return archivo;
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(archivo);
+
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+
+      img.onload = () => {
+        try {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) return resolve(archivo); // Fallback al original
+              const archivoComprimido = new File([blob], `${Date.now()}.jpg`, {
+                type: "image/jpeg",
+              });
+              resolve(archivoComprimido);
+            },
+            "image/jpeg",
+            calidad,
+          );
+        } catch (err) {
+          resolve(archivo); // Fallback al original ante cualquier fallo de memoria
+        }
+      };
+
+      img.onerror = () => resolve(archivo);
+    };
+
+    reader.onerror = () => resolve(archivo);
+  });
+}
 
 export default function Admin() {
   const router = useRouter();
@@ -119,11 +174,14 @@ export default function Admin() {
   const [seccionConfigOcultar, setSeccionConfigOcultar] =
     useState("perfumeria");
 
+  const [filtroSeccionLista, setFiltroSeccionLista] = useState("todas");
+  const [ordenLista, setOrdenLista] = useState("nuevos");
+  const [busqueda, setBusqueda] = useState("");
+
   const [form, setForm] = useState(FORM_VACIO);
   const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [busqueda, setBusqueda] = useState("");
 
   const siguienteCodigo = useMemo(
     () => calcularSiguienteCodigo(perfumes),
@@ -251,16 +309,28 @@ export default function Admin() {
       if (files.length > 0) {
         const urlsNuevas = [];
         for (const f of files) {
-          const ext = f.name.split(".").pop();
+          // Comprime la imagen de forma segura
+          const fotoAEnviar = await comprimirImagen(f, 800, 0.65);
+
+          const ext = fotoAEnviar.name.split(".").pop() || "jpg";
           const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
           const { error: uploadError } = await supabase.storage
             .from("perfumes-fotos")
-            .upload(path, f);
+            .upload(path, fotoAEnviar, {
+              contentType: fotoAEnviar.type || "image/jpeg",
+              upsert: true,
+            });
+
           if (uploadError) throw uploadError;
+
           const { data: pub } = supabase.storage
             .from("perfumes-fotos")
             .getPublicUrl(path);
-          urlsNuevas.push(pub.publicUrl);
+
+          if (pub?.publicUrl) {
+            urlsNuevas.push(pub.publicUrl);
+          }
         }
         fotos = [...fotos, ...urlsNuevas];
       }
@@ -321,15 +391,39 @@ export default function Admin() {
 
   const esFragancia = form.tipo === "perfume" || form.tipo === "body_splash";
 
-  const perfumesVisibles = perfumes.filter((p) => {
-    if (!busqueda.trim()) return true;
-    const q = normalizarTexto(busqueda);
-    return (
-      normalizarTexto(p.nombre).includes(q) ||
-      normalizarTexto(p.marca).includes(q) ||
-      normalizarTexto(p.codigo).includes(q)
-    );
-  });
+  const perfumesVisibles = perfumes
+    .filter((p) => {
+      const secs =
+        p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"];
+      if (
+        filtroSeccionLista !== "todas" &&
+        !secs.includes(filtroSeccionLista)
+      ) {
+        return false;
+      }
+
+      if (!busqueda.trim()) return true;
+      const q = normalizarTexto(busqueda);
+      return (
+        normalizarTexto(p.nombre).includes(q) ||
+        normalizarTexto(p.marca).includes(q) ||
+        normalizarTexto(p.codigo).includes(q)
+      );
+    })
+    .sort((a, b) => {
+      if (ordenLista === "precio_asc")
+        return Number(a.precio) - Number(b.precio);
+      if (ordenLista === "precio_desc")
+        return Number(b.precio) - Number(a.precio);
+      if (ordenLista === "nombre")
+        return a.nombre.localeCompare(b.nombre, "es");
+      if (ordenLista === "codigo") {
+        if (!a.codigo) return 1;
+        if (!b.codigo) return -1;
+        return a.codigo.localeCompare(b.codigo, "es", { numeric: true });
+      }
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
 
   return (
     <div
@@ -597,7 +691,9 @@ export default function Admin() {
                   style={{
                     padding: "10px",
                     borderRadius: 8,
-                    border: `1.5px solid ${form.disponibilidad === "inmediata" ? "#2e7d32" : "#ddd"}`,
+                    border: `1.5px solid ${
+                      form.disponibilidad === "inmediata" ? "#2e7d32" : "#ddd"
+                    }`,
                     background:
                       form.disponibilidad === "inmediata" ? "#2e7d32" : "#fff",
                     color:
@@ -616,7 +712,9 @@ export default function Admin() {
                   style={{
                     padding: "10px",
                     borderRadius: 8,
-                    border: `1.5px solid ${form.disponibilidad === "encargo" ? "#6B1E3C" : "#ddd"}`,
+                    border: `1.5px solid ${
+                      form.disponibilidad === "encargo" ? "#6B1E3C" : "#ddd"
+                    }`,
                     background:
                       form.disponibilidad === "encargo" ? "#6B1E3C" : "#fff",
                     color:
@@ -650,7 +748,9 @@ export default function Admin() {
                     style={{
                       padding: "8px 12px",
                       borderRadius: 20,
-                      border: `1px solid ${form.tipo === t.value ? "#6B1E3C" : "#ccc"}`,
+                      border: `1px solid ${
+                        form.tipo === t.value ? "#6B1E3C" : "#ccc"
+                      }`,
                       background: form.tipo === t.value ? "#6B1E3C" : "#fff",
                       color: form.tipo === t.value ? "#fff" : "#2b2320",
                       fontSize: 13,
@@ -1025,10 +1125,83 @@ export default function Admin() {
                 padding: 12,
                 borderRadius: 8,
                 border: "1px solid #ccc",
-                marginBottom: 14,
+                marginBottom: 10,
                 fontSize: 15,
               }}
             />
+
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                marginBottom: 10,
+                overflowX: "auto",
+                paddingBottom: 4,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setFiltroSeccionLista("todas")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 20,
+                  border: `1px solid ${
+                    filtroSeccionLista === "todas" ? "#6B1E3C" : "#ddd"
+                  }`,
+                  background:
+                    filtroSeccionLista === "todas" ? "#6B1E3C" : "#fff",
+                  color: filtroSeccionLista === "todas" ? "#fff" : "#2b2320",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Todas las secciones
+              </button>
+              {SECCIONES_DISPONIBLES.map((sec) => (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => setFiltroSeccionLista(sec.id)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 20,
+                    border: `1px solid ${
+                      filtroSeccionLista === sec.id ? "#6B1E3C" : "#ddd"
+                    }`,
+                    background:
+                      filtroSeccionLista === sec.id ? "#6B1E3C" : "#fff",
+                    color: filtroSeccionLista === sec.id ? "#fff" : "#2b2320",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {sec.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <select
+                value={ordenLista}
+                onChange={(e) => setOrdenLista(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #ccc",
+                  fontSize: 13,
+                  background: "#fff",
+                }}
+              >
+                <option value="nuevos">Más nuevos primero</option>
+                <option value="precio_asc">Precio: menor a mayor</option>
+                <option value="precio_desc">Precio: mayor a menor</option>
+                <option value="codigo">Ordenar por Código</option>
+                <option value="nombre">Ordenar alfabéticamente (A-Z)</option>
+              </select>
+            </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {perfumesVisibles.map((p) => {
@@ -1179,7 +1352,7 @@ export default function Admin() {
                 <div
                   style={{ textAlign: "center", padding: 30, color: "#888" }}
                 >
-                  No se encontraron productos con esa búsqueda.
+                  No se encontraron productos con ese filtro o búsqueda.
                 </div>
               )}
             </div>

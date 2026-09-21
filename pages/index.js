@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 const WHATSAPP_NUMERO = "5492974437221";
-const FAVORITOS_KEY = "catalogo-favoritos";
+const PRODUCTOS_POR_PAGINA = 12; // Carga de a 12 para máxima velocidad y ahorro de datos
 
 const SECCIONES = [
   {
@@ -23,8 +23,8 @@ const SECCIONES = [
   },
   {
     id: "joyeria",
-    nombre: "Joyería",
-    descripcion: "Aros, collares y accesorios de acero",
+    nombre: "Perla Negra",
+    descripcion: "Aros, collares, anillos, dijes y conjuntos de acero",
   },
 ];
 
@@ -40,6 +40,7 @@ const LABELS_TIPO = {
   pulsera: "Pulsera",
   anillo: "Anillo",
   dije: "Dije",
+  conjunto: "Conjunto",
 };
 
 const CATEGORIAS = [
@@ -58,19 +59,24 @@ function normalizarTexto(str) {
     .toLowerCase();
 }
 
-function Heart({ filled }) {
+function WhatsAppIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill={filled ? "#6B1E3C" : "none"}
-      stroke={filled ? "#6B1E3C" : "#2B2320"}
-      strokeWidth="2"
-    >
-      <path d="M12 21s-7.5-4.6-10-9.2C.4 8.1 2 4.5 5.6 4c2-.3 3.8.7 4.9 2.3.4.6.9 1.4 1.5 2.3.6-.9 1.1-1.7 1.5-2.3C14.6 4.7 16.4 3.7 18.4 4c3.6.5 5.2 4.1 3.6 7.8C19.5 16.4 12 21 12 21z" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.63C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2Z"
+        fill="#25D366"
+      />
+      <path
+        d="M17.52 14.33C17.22 14.18 15.75 13.45 15.48 13.35C15.2 13.25 15 13.2 14.8 13.5C14.6 13.8 14.03 14.48 13.85 14.68C13.68 14.88 13.5 14.9 13.2 14.75C12.9 14.6 11.95 14.29 10.82 13.28C9.94 12.49 9.35 11.52 9.17 11.22C9 10.92 9.15 10.76 9.3 10.61C9.43 10.48 9.6 10.26 9.75 10.08C9.9 9.9 9.95 9.78 10.05 9.58C10.15 9.38 10.1 9.2 10.02 9.05C9.95 8.9 9.37 7.48 9.13 6.9C8.9 6.34 8.66 6.42 8.48 6.41C8.31 6.4 8.11 6.4 7.91 6.4C7.71 6.4 7.39 6.48 7.11 6.78C6.84 7.08 6.06 7.81 6.06 9.28C6.06 10.75 7.13 12.18 7.28 12.38C7.43 12.58 9.39 15.6 12.4 16.9C13.12 17.21 13.68 17.4 14.12 17.54C14.84 17.77 15.5 17.74 16.02 17.66C16.6 17.57 17.81 16.92 18.06 16.22C18.31 15.52 18.31 14.92 18.23 14.8C18.16 14.68 17.82 14.48 17.52 14.33Z"
+        fill="#FFFFFF"
+      />
     </svg>
   );
+}
+function optimizarUrl(url) {
+  if (!url || !url.startsWith("http")) return url;
+  // Redimensiona a un ancho máximo de 600px, comprime al 75% y convierte a formato liviano
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=600&q=75&output=webp`;
 }
 
 function FotosCarrusel({ fotos, nombre }) {
@@ -91,7 +97,13 @@ function FotosCarrusel({ fotos, nombre }) {
 
   return (
     <>
-      <img src={lista[idx]} alt={nombre} />
+      <img
+        src={optimizarUrl(lista[idx])}
+        alt={nombre}
+        loading="lazy"
+        decoding="async"
+        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+      />
       {lista.length > 1 && (
         <>
           <button
@@ -132,9 +144,24 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
   const [busqueda, setBusqueda] = useState("");
   const [orden, setOrden] = useState("nuevos");
   const [tipo, setTipo] = useState("todos");
-  const [favoritos, setFavoritos] = useState([]);
 
-  // Carga inicial y actualización de la configuración en el cliente
+  // Cantidad visible actual para paginación
+  const [limiteVisible, setLimiteVisible] = useState(PRODUCTOS_POR_PAGINA);
+
+  // Cada vez que se cambia de filtro o búsqueda, vuelve a los primeros 12
+  useEffect(() => {
+    setLimiteVisible(PRODUCTOS_POR_PAGINA);
+  }, [
+    seccionActual,
+    categoria,
+    tamano,
+    soloPromos,
+    filtroDisponibilidad,
+    busqueda,
+    orden,
+    tipo,
+  ]);
+
   useEffect(() => {
     async function cargarConf() {
       const { data } = await supabase
@@ -154,47 +181,18 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
         .select("*")
         .order("created_at", { ascending: false });
       if (pData) setPerfumes(pData);
-
       cargarConf();
-    }, 15000);
+    }, 20000);
 
     return () => clearInterval(intervalo);
   }, []);
 
-  useEffect(() => {
-    try {
-      const guardados = JSON.parse(
-        window.localStorage.getItem(FAVORITOS_KEY) || "[]",
-      );
-      setFavoritos(guardados);
-    } catch {
-      setFavoritos([]);
-    }
-  }, []);
-
-  function toggleFavorito(id) {
-    setFavoritos((prev) => {
-      const next = prev.includes(id)
-        ? prev.filter((f) => f !== id)
-        : [...prev, id];
-      window.localStorage.setItem(FAVORITOS_KEY, JSON.stringify(next));
-      return next;
-    });
-  }
-
-  const productosFavoritos = useMemo(
-    () => perfumes.filter((p) => favoritos.includes(p.id)),
-    [perfumes, favoritos],
-  );
-
-  // Comprueba si el precio está oculto según la sección y tipo
   function tienePrecioOculto(p) {
     if (Number(p.precio) === 0) return true;
     const secs =
       p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"];
     const t = p.tipo || "perfume";
 
-    // Si estamos navegando dentro de una sección específica
     if (seccionActual) {
       return (
         preciosOcultos.includes(`${seccionActual}:${t}`) ||
@@ -202,54 +200,32 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
       );
     }
 
-    // Si estamos en búsqueda global o catálogo completo, oculta si alguna de sus secciones lo tiene oculto
     return secs.some(
       (sec) =>
         preciosOcultos.includes(`${sec}:${t}`) || preciosOcultos.includes(t),
     );
   }
 
-  function enviarPorWhatsapp() {
-    const inmediatos = productosFavoritos.filter(
-      (p) =>
-        (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) ===
-        "inmediata",
+  function consultarProductoDirecto(p, e) {
+    e.stopPropagation();
+    const oculto = tienePrecioOculto(p);
+    const precioTxt = oculto
+      ? "consultar el precio"
+      : `precio $${Number(p.precio).toLocaleString("es-AR")}`;
+    const dispTxt =
+      (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) ===
+      "inmediata"
+        ? "para retiro inmediato"
+        : "para encargar";
+
+    const mensaje = `¡Hola! Me interesa este producto del catálogo:\n\n• ${
+      p.codigo ? `[${p.codigo}] ` : ""
+    }${p.nombre} (${p.tamano || "Estándar"}) - ${dispTxt}\n\n¿Me podrías confirmar disponibilidad y precio?`;
+
+    window.open(
+      `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`,
+      "_blank",
     );
-    const encargo = productosFavoritos.filter(
-      (p) =>
-        (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) ===
-        "encargo",
-    );
-
-    let mensaje =
-      "Hola, vi el catálogo y me interesan los siguientes artículos:\n\n";
-
-    if (inmediatos.length > 0) {
-      mensaje += "DISPONIBLES PARA RETIRAR HOY:\n";
-      inmediatos.forEach((p) => {
-        const oculto = tienePrecioOculto(p);
-        const precioTxt = oculto
-          ? "Consultar precio"
-          : `$${Number(p.precio).toLocaleString("es-AR")}`;
-        mensaje += `• ${p.codigo ? `[${p.codigo}] ` : ""}${p.nombre} ${p.tamano ? `(${p.tamano})` : ""} - ${precioTxt}\n`;
-      });
-      mensaje += "\n";
-    }
-
-    if (encargo.length > 0) {
-      mensaje += "PARA ENCARGAR (ABONO PREVIO COMPLETO):\n";
-      encargo.forEach((p) => {
-        const oculto = tienePrecioOculto(p);
-        const precioTxt = oculto
-          ? "Consultar precio"
-          : `$${Number(p.precio).toLocaleString("es-AR")}`;
-        mensaje += `• ${p.codigo ? `[${p.codigo}] ` : ""}${p.nombre} ${p.tamano ? `(${p.tamano})` : ""} - ${precioTxt}\n`;
-      });
-      mensaje += "\n¿Me confirmás para coordinar?\n";
-    }
-
-    const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, "_blank");
   }
 
   const esBusquedaActiva = busqueda.trim().length > 0;
@@ -281,34 +257,22 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
     return lista;
   }, [productosBaseSeccion]);
 
-  const categoriasDisponibles = useMemo(() => {
-    const catsEncontradas = new Set(
-      productosBaseSeccion
-        .filter(
-          (p) =>
-            (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) !==
-            "agotado",
-        )
-        .map((p) => p.categoria)
-        .filter(Boolean),
-    );
-
-    const lista = [{ value: "todas", label: "Todas" }];
-    CATEGORIAS.filter((c) => c.value !== "todas").forEach((c) => {
-      if (catsEncontradas.has(c.value)) {
-        lista.push(c);
-      }
-    });
-    return lista;
-  }, [productosBaseSeccion]);
-
   const tamanos = useMemo(() => {
-    const s = new Set(
-      productosBaseSeccion.map((p) => p.tamano).filter(Boolean),
+    const s = Array.from(
+      new Set(productosBaseSeccion.map((p) => p.tamano).filter(Boolean)),
     );
-    return ["todos", ...Array.from(s)];
+
+    s.sort((a, b) => {
+      const numA = parseFloat(a.replace(/[^\d.]/g, "")) || 0;
+      const numB = parseFloat(b.replace(/[^\d.]/g, "")) || 0;
+      if (numA !== numB) return numA - numB;
+      return a.localeCompare(b, "es", { numeric: true });
+    });
+
+    return ["todos", ...s];
   }, [productosBaseSeccion]);
 
+  // Lista total que coincide con los filtros
   const filtrados = useMemo(() => {
     const lista = perfumes.filter((p) => {
       const secs =
@@ -374,6 +338,11 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
     esBusquedaActiva,
   ]);
 
+  // Solo renderiza la porción actual
+  const productosRenderizados = useMemo(() => {
+    return filtrados.slice(0, limiteVisible);
+  }, [filtrados, limiteVisible]);
+
   function cambiarSeccion(secId) {
     setSeccionActual(secId);
     setTipo("todos");
@@ -425,7 +394,9 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                 {SECCIONES.map((sec) => (
                   <button
                     key={sec.id}
-                    className={`pill ${seccionActual === sec.id ? "active" : ""}`}
+                    className={`pill ${
+                      seccionActual === sec.id ? "active" : ""
+                    }`}
                     onClick={() => cambiarSeccion(sec.id)}
                   >
                     {sec.nombre}
@@ -549,19 +520,25 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
               <div className="filter-group">
                 <span className="filter-label">Disponibilidad</span>
                 <button
-                  className={`pill ${filtroDisponibilidad === "todos" ? "active" : ""}`}
+                  className={`pill ${
+                    filtroDisponibilidad === "todos" ? "active" : ""
+                  }`}
                   onClick={() => setFiltroDisponibilidad("todos")}
                 >
                   Todos
                 </button>
                 <button
-                  className={`pill ${filtroDisponibilidad === "inmediata" ? "active" : ""}`}
+                  className={`pill ${
+                    filtroDisponibilidad === "inmediata" ? "active" : ""
+                  }`}
                   onClick={() => setFiltroDisponibilidad("inmediata")}
                 >
                   Entrega inmediata
                 </button>
                 <button
-                  className={`pill ${filtroDisponibilidad === "encargo" ? "active" : ""}`}
+                  className={`pill ${
+                    filtroDisponibilidad === "encargo" ? "active" : ""
+                  }`}
                   onClick={() => setFiltroDisponibilidad("encargo")}
                 >
                   Por encargo
@@ -585,14 +562,15 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
 
               {(seccionActual === "perfumeria" ||
                 seccionActual === "joyeria") &&
-                !esBusquedaActiva &&
-                categoriasDisponibles.length > 2 && (
+                !esBusquedaActiva && (
                   <div className="filter-group">
-                    <span className="filter-label">Categoría</span>
-                    {categoriasDisponibles.map((c) => (
+                    <span className="filter-label">Público</span>
+                    {CATEGORIAS.map((c) => (
                       <button
                         key={c.value}
-                        className={`pill ${categoria === c.value ? "active" : ""}`}
+                        className={`pill ${
+                          categoria === c.value ? "active" : ""
+                        }`}
                         onClick={() => setCategoria(c.value)}
                       >
                         {c.label}
@@ -634,145 +612,186 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                 <p>Probá cambiando los filtros o el término de búsqueda.</p>
               </div>
             ) : (
-              <div className="grid">
-                {filtrados.map((p) => {
-                  const secs =
-                    p.secciones && p.secciones.length > 0
-                      ? p.secciones
-                      : ["perfumeria"];
-                  const disp =
-                    p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
-                  const tipoActual = p.tipo || "perfume";
-                  const esPerfumeriaOBs =
-                    tipoActual === "perfume" || tipoActual === "body_splash";
-                  const precioOculto = tienePrecioOculto(p);
+              <>
+                <div className="grid">
+                  {productosRenderizados.map((p) => {
+                    const secs =
+                      p.secciones && p.secciones.length > 0
+                        ? p.secciones
+                        : ["perfumeria"];
+                    const disp =
+                      p.disponibilidad ||
+                      (p.en_stock ? "inmediata" : "encargo");
+                    const tipoActual = p.tipo || "perfume";
+                    const esPerfumeriaOBs =
+                      tipoActual === "perfume" || tipoActual === "body_splash";
+                    const precioOculto = tienePrecioOculto(p);
 
-                  return (
-                    <div className="card" key={p.id}>
-                      <div className="card-photo">
-                        <FotosCarrusel fotos={p.fotos} nombre={p.nombre} />
-                        <div className="card-badges-left">
-                          {secs.map((sId) => {
-                            const matchSec = SECCIONES.find(
-                              (s) => s.id === sId,
-                            );
-                            if (!matchSec) return null;
-                            return (
-                              <span
-                                key={sId}
-                                className="card-badge"
-                                style={{ marginRight: 4 }}
-                              >
-                                {matchSec.nombre}
+                    return (
+                      <div className="card" key={p.id}>
+                        <div className="card-photo">
+                          <FotosCarrusel fotos={p.fotos} nombre={p.nombre} />
+                          <div className="card-badges-left">
+                            {secs.map((sId) => {
+                              const matchSec = SECCIONES.find(
+                                (s) => s.id === sId,
+                              );
+                              if (!matchSec) return null;
+                              return (
+                                <span
+                                  key={sId}
+                                  className="card-badge"
+                                  style={{ marginRight: 4 }}
+                                >
+                                  {matchSec.nombre}
+                                </span>
+                              );
+                            })}
+
+                            {p.tipo && (
+                              <span className="card-badge-tipo">
+                                {LABELS_TIPO[p.tipo] ||
+                                  p.tipo.charAt(0).toUpperCase() +
+                                    p.tipo.slice(1)}
                               </span>
-                            );
-                          })}
+                            )}
+                            {p.en_promo && (
+                              <span className="card-badge-promo">🏷️ Promo</span>
+                            )}
+                          </div>
 
-                          {p.tipo && (
-                            <span className="card-badge-tipo">
-                              {LABELS_TIPO[p.tipo] ||
-                                p.tipo.charAt(0).toUpperCase() +
-                                  p.tipo.slice(1)}
+                          {esPerfumeriaOBs && p.codigo && (
+                            <span className="card-codigo-bubble">
+                              {p.codigo}
                             </span>
                           )}
-                          {p.en_promo && (
-                            <span className="card-badge-promo">🏷️ Promo</span>
-                          )}
-                        </div>
 
-                        {esPerfumeriaOBs && p.codigo && (
-                          <span className="card-codigo-bubble">{p.codigo}</span>
-                        )}
-
-                        <button
-                          className="fav-btn"
-                          onClick={() => toggleFavorito(p.id)}
-                          aria-label={
-                            favoritos.includes(p.id)
-                              ? "Quitar de favoritos"
-                              : "Agregar a favoritos"
-                          }
-                        >
-                          <Heart filled={favoritos.includes(p.id)} />
-                        </button>
-                      </div>
-                      <div className="card-body">
-                        <div className="card-name serif">{p.nombre}</div>
-                        <div className="card-meta">
-                          {p.tamano && <span>{p.tamano}</span>}
-                          {p.tamano && p.marca && <span className="card-dot" />}
-                          <span>{p.marca || "Sin marca"}</span>
-                        </div>
-
-                        {!precioOculto &&
-                          p.en_promo &&
-                          p.precio_anterior > p.precio && (
-                            <div className="card-descuento-row">
-                              <span className="card-price-old">
-                                $
-                                {Number(p.precio_anterior).toLocaleString(
-                                  "es-AR",
-                                )}
-                              </span>
-                              <span className="card-discount-badge">
-                                -
-                                {Math.round(
-                                  100 -
-                                    (Number(p.precio) /
-                                      Number(p.precio_anterior)) *
-                                      100,
-                                )}
-                                %
-                              </span>
-                            </div>
-                          )}
-
-                        <div
-                          className="card-footer"
-                          style={{
-                            flexDirection: "column",
-                            alignItems: "flex-start",
-                            gap: 6,
-                          }}
-                        >
-                          <div
+                          <button
+                            className="fav-btn"
+                            onClick={(e) => consultarProductoDirecto(p, e)}
+                            title="Consultar por WhatsApp"
                             style={{
+                              background: "#25D366",
+                              boxShadow: "0 2px 8px rgba(37, 211, 102, 0.4)",
                               display: "flex",
-                              justifyContent: "space-between",
-                              width: "100%",
                               alignItems: "center",
+                              justifyContent: "center",
                             }}
                           >
-                            <span className="card-price">
-                              {precioOculto
-                                ? "Consultar precio"
-                                : `$${Number(p.precio).toLocaleString("es-AR")}`}
-                            </span>
-                            <span
-                              className={`card-stock ${disp === "encargo" ? "out" : ""}`}
-                            >
-                              {disp === "inmediata"
-                                ? "Entrega inmediata"
-                                : "Por encargo"}
-                            </span>
+                            <WhatsAppIcon />
+                          </button>
+                        </div>
+                        <div className="card-body">
+                          <div className="card-name serif">{p.nombre}</div>
+                          <div className="card-meta">
+                            {p.tamano && <span>{p.tamano}</span>}
+                            {p.tamano && p.marca && (
+                              <span className="card-dot" />
+                            )}
+                            <span>{p.marca || "Sin marca"}</span>
                           </div>
-                          {disp === "encargo" && (
-                            <span
+
+                          {!precioOculto &&
+                            p.en_promo &&
+                            p.precio_anterior > p.precio && (
+                              <div className="card-descuento-row">
+                                <span className="card-price-old">
+                                  $
+                                  {Number(p.precio_anterior).toLocaleString(
+                                    "es-AR",
+                                  )}
+                                </span>
+                                <span className="card-discount-badge">
+                                  -
+                                  {Math.round(
+                                    100 -
+                                      (Number(p.precio) /
+                                        Number(p.precio_anterior)) *
+                                        100,
+                                  )}
+                                  %
+                                </span>
+                              </div>
+                            )}
+
+                          <div
+                            className="card-footer"
+                            style={{
+                              flexDirection: "column",
+                              alignItems: "flex-start",
+                              gap: 6,
+                            }}
+                          >
+                            <div
                               style={{
-                                fontSize: 11,
-                                color: "#6B1E3C",
-                                fontWeight: 500,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                width: "100%",
+                                alignItems: "center",
                               }}
                             >
-                              Abono previo completo
-                            </span>
-                          )}
+                              <span className="card-price">
+                                {precioOculto
+                                  ? "Consultar precio"
+                                  : `$${Number(p.precio).toLocaleString("es-AR")}`}
+                              </span>
+                              <span
+                                className={`card-stock ${
+                                  disp === "encargo" ? "out" : ""
+                                }`}
+                              >
+                                {disp === "inmediata"
+                                  ? "Entrega inmediata"
+                                  : "Por encargo"}
+                              </span>
+                            </div>
+                            {disp === "encargo" && (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "#6B1E3C",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                Abono previo completo
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+
+                {/* BOTÓN CARGAR MÁS PRODUCTOS */}
+                {limiteVisible < filtrados.length && (
+                  <div style={{ textAlign: "center", margin: "20px 0 60px" }}>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        color: "#6b5f57",
+                        marginBottom: 12,
+                      }}
+                    >
+                      Mostrando {limiteVisible} de {filtrados.length} productos
+                    </p>
+                    <button
+                      onClick={() =>
+                        setLimiteVisible((prev) => prev + PRODUCTOS_POR_PAGINA)
+                      }
+                      className="btn btn-primary"
+                      style={{
+                        padding: "14px 28px",
+                        fontSize: 15,
+                        borderRadius: 30,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cargar más productos
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -784,20 +803,6 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
           <a href="/admin/login">Panel de administración</a>
         </div>
       </footer>
-
-      {productosFavoritos.length > 0 && (
-        <div className="fav-bar">
-          <div className="container fav-bar-inner">
-            <span className="fav-count">
-              <Heart filled /> {productosFavoritos.length}{" "}
-              {productosFavoritos.length === 1 ? "artículo" : "artículos"}
-            </span>
-            <button className="btn btn-primary" onClick={enviarPorWhatsapp}>
-              Consultar por WhatsApp
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
