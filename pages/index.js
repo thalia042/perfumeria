@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 const WHATSAPP_NUMERO = "5492974437221";
-const PRODUCTOS_POR_PAGINA = 12; // Carga de a 12 para máxima velocidad y ahorro de datos
+const PRODUCTOS_POR_PAGINA = 12;
 
 const SECCIONES = [
   {
@@ -51,12 +51,12 @@ const LABELS_TIPO = {
   conjunto: "Conjunto",
 };
 
+// Se eliminó 'unisex'
 const CATEGORIAS = [
   { value: "todas", label: "Todas" },
   { value: "mujer", label: "Mujer" },
   { value: "hombre", label: "Hombre" },
   { value: "infantil", label: "Infantil" },
-  { value: "unisex", label: "Unisex" },
 ];
 
 function normalizarTexto(str) {
@@ -67,23 +67,24 @@ function normalizarTexto(str) {
     .toLowerCase();
 }
 
+function optimizarUrl(url) {
+  if (!url || !url.startsWith("http")) return url;
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=600&q=75&output=webp`;
+}
+
 function WhatsAppIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
       <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M12 2C6.48 2 2 6.48 2 12C2 13.85 2.5 15.58 3.39 17.06L2.06 21.94L7.07 20.63C8.51 21.5 10.2 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM17.47 16.51C17.24 17.15 16.33 17.67 15.54 17.84C15 17.95 14.3 18.04 12.22 17.18C9.55 16.08 7.84 13.37 7.7 13.19C7.57 13.02 6.62 11.75 6.62 10.44C6.62 9.13 7.29 8.49 7.52 8.23C7.75 7.97 8.03 7.9 8.22 7.9C8.36 7.9 8.52 7.91 8.65 7.91C8.82 7.92 8.94 7.93 9.06 8.21C9.21 8.58 9.57 9.47 9.61 9.56C9.66 9.66 9.68 9.77 9.61 9.91C9.54 10.05 9.49 10.13 9.38 10.26C9.27 10.39 9.16 10.48 9.05 10.62C8.93 10.74 8.81 10.88 8.95 11.12C9.09 11.36 9.57 12.15 10.28 12.78C11.19 13.59 11.94 13.85 12.18 13.97C12.42 14.09 12.56 14.07 12.7 13.91C12.84 13.75 13.3 13.21 13.48 12.96C13.66 12.71 13.84 12.75 14.08 12.84C14.32 12.93 15.61 13.57 15.87 13.7C16.13 13.83 16.31 13.89 16.38 14C16.44 14.12 16.44 14.7 16.21 15.34L17.47 16.51Z"
+        d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.63C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2Z"
+        fill="#25D366"
+      />
+      <path
+        d="M17.52 14.33C17.22 14.18 15.75 13.45 15.48 13.35C15.2 13.25 15 13.2 14.8 13.5C14.6 13.8 14.03 14.48 13.85 14.68C13.68 14.88 13.5 14.9 13.2 14.75C12.9 14.6 11.95 14.29 10.82 13.28C9.94 12.49 9.35 11.52 9.17 11.22C9 10.92 9.15 10.76 9.3 10.61C9.43 10.48 9.6 10.26 9.75 10.08C9.9 9.9 9.95 9.78 10.05 9.58C10.15 9.38 10.1 9.2 10.02 9.05C9.95 8.9 9.37 7.48 9.13 6.9C8.9 6.34 8.66 6.42 8.48 6.41C8.31 6.4 8.11 6.4 7.91 6.4C7.71 6.4 7.39 6.48 7.11 6.78C6.84 7.08 6.06 7.81 6.06 9.28C6.06 10.75 7.13 12.18 7.28 12.38C7.43 12.58 9.39 15.6 12.4 16.9C13.12 17.21 13.68 17.4 14.12 17.54C14.84 17.77 15.5 17.74 16.02 17.66C16.6 17.57 17.81 16.92 18.06 16.22C18.31 15.52 18.31 14.92 18.23 14.8C18.16 14.68 17.82 14.48 17.52 14.33Z"
         fill="#FFFFFF"
       />
     </svg>
   );
-}
-
-function optimizarUrl(url) {
-  if (!url || !url.startsWith("http")) return url;
-  // Redimensiona a un ancho máximo de 600px, comprime al 75% y convierte a formato liviano
-  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=600&q=75&output=webp`;
 }
 
 function FotosCarrusel({ fotos, nombre }) {
@@ -152,10 +153,10 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
   const [orden, setOrden] = useState("nuevos");
   const [tipo, setTipo] = useState("todos");
 
-  // Cantidad visible actual para paginación
+  // Controla el colapsable de filtros en celular
+  const [mostrarFiltrosMobile, setMostrarFiltrosMobile] = useState(false);
   const [limiteVisible, setLimiteVisible] = useState(PRODUCTOS_POR_PAGINA);
 
-  // Cada vez que se cambia de filtro o búsqueda, vuelve a los primeros 12
   useEffect(() => {
     setLimiteVisible(PRODUCTOS_POR_PAGINA);
   }, [
@@ -217,22 +218,16 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
     e.stopPropagation();
     const oculto = tienePrecioOculto(p);
     const disp = p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
-    const dispTxt =
-      disp === "inmediata"
-        ? "Entrega inmediata"
-        : "Por encargo (con seña/abono previo)";
+    const dispTxt = disp === "inmediata" ? "Entrega inmediata" : "Por encargo";
     const medidaTxt = p.tamano ? ` (${p.tamano})` : "";
     const codigoTxt = p.codigo ? `[${p.codigo}] ` : "";
 
     let mensaje = "";
-
     if (oculto) {
-      // Si el precio es 0 o está oculto por sección
-      mensaje = `¡Hola! Me interesa este artículo del catálogo:\n\n• ${codigoTxt}${p.nombre}${medidaTxt}\n• Modalidad: ${dispTxt}\n\n¿Me podrías confirmar el precio y la disponibilidad para coordinar?`;
+      mensaje = `¡Hola! Me interesa este artículo del catálogo:\n\n• ${codigoTxt}${p.nombre}${medidaTxt}\n• Modalidad: ${dispTxt}\n\n¿Me podrías confirmar el precio y la disponibilidad?`;
     } else {
-      // Si ya tiene precio visible ($20.000, $34.500, etc.)
       const precioFormateado = `$${Number(p.precio).toLocaleString("es-AR")}`;
-      mensaje = `¡Hola! Me interesa comprar este artículo del catálogo:\n\n• ${codigoTxt}${p.nombre}${medidaTxt}\n• Precio: ${precioFormateado}\n• Modalidad: ${dispTxt}\n\n¿Sigue disponible para coordinar la entrega?`;
+      mensaje = `¡Hola! Me interesa comprar este artículo del catálogo:\n\n• ${codigoTxt}${p.nombre}${medidaTxt}\n• Precio: ${precioFormateado}\n• Modalidad: ${dispTxt}\n\n¿Sigue disponible para coordinar?`;
     }
 
     window.open(
@@ -285,7 +280,6 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
     return ["todos", ...s];
   }, [productosBaseSeccion]);
 
-  // Lista total que coincide con los filtros
   const filtrados = useMemo(() => {
     const lista = perfumes.filter((p) => {
       const secs =
@@ -330,12 +324,8 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
       if (dispA !== dispB) {
         return dispA === "inmediata" ? -1 : 1;
       }
-      if (orden === "precio_asc") {
-        return Number(a.precio) - Number(b.precio);
-      }
-      if (orden === "precio_desc") {
-        return Number(b.precio) - Number(a.precio);
-      }
+      if (orden === "precio_asc") return Number(a.precio) - Number(b.precio);
+      if (orden === "precio_desc") return Number(b.precio) - Number(a.precio);
       return new Date(b.created_at) - new Date(a.created_at);
     });
   }, [
@@ -351,7 +341,6 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
     esBusquedaActiva,
   ]);
 
-  // Solo renderiza la porción actual
   const productosRenderizados = useMemo(() => {
     return filtrados.slice(0, limiteVisible);
   }, [filtrados, limiteVisible]);
@@ -362,7 +351,16 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
     setCategoria("todas");
     setTamano("todos");
     setFiltroDisponibilidad("todos");
+    setMostrarFiltrosMobile(false);
   }
+
+  // Cuenta si hay algún filtro activo para mostrar una etiqueta indicativa en el botón móvil
+  const hayFiltrosActivos =
+    categoria !== "todas" ||
+    tipo !== "todos" ||
+    tamano !== "todos" ||
+    filtroDisponibilidad !== "todos" ||
+    soloPromos;
 
   return (
     <div className="page">
@@ -393,23 +391,23 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                 className="btn btn-ghost btn-sm"
                 onClick={() => setSeccionActual(null)}
               >
-                Ver todas las secciones
+                ← Ver todas las secciones
               </button>
               <div
-                className="secciones-tabs"
+                className="secciones-tabs scroll-touch"
                 style={{
                   display: "inline-flex",
                   gap: 8,
                   marginLeft: 10,
-                  flexWrap: "wrap",
+                  overflowX: "auto",
+                  maxWidth: "100%",
+                  verticalAlign: "middle",
                 }}
               >
                 {SECCIONES.map((sec) => (
                   <button
                     key={sec.id}
-                    className={`pill ${
-                      seccionActual === sec.id ? "active" : ""
-                    }`}
+                    className={`pill ${seccionActual === sec.id ? "active" : ""}`}
                     onClick={() => cambiarSeccion(sec.id)}
                   >
                     {sec.nombre}
@@ -507,29 +505,44 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
           </div>
         ) : (
           <>
-            <div className="filters">
-              <div className="filter-group">
+            {/* BOTÓN COLAPSABLE PARA CELULAR */}
+            <div className="mobile-filter-toggle-wrap">
+              <button
+                type="button"
+                className={`btn-mobile-filter ${hayFiltrosActivos ? "highlight" : ""}`}
+                onClick={() => setMostrarFiltrosMobile((v) => !v)}
+              >
+                <span>
+                  {mostrarFiltrosMobile
+                    ? "▲ Ocultar filtros"
+                    : "⚡ Filtrar productos"}
+                </span>
+                {hayFiltrosActivos && (
+                  <span className="filter-dot-active">● Activos</span>
+                )}
+              </button>
+            </div>
+
+            {/* CONTENEDOR DE FILTROS: En escritorio visible siempre, en celular solo si se abre */}
+            <div
+              className={`filters ${mostrarFiltrosMobile ? "open-mobile" : ""}`}
+            >
+              <div className="filter-group scroll-touch">
                 <span className="filter-label">Disponibilidad</span>
                 <button
-                  className={`pill ${
-                    filtroDisponibilidad === "todos" ? "active" : ""
-                  }`}
+                  className={`pill ${filtroDisponibilidad === "todos" ? "active" : ""}`}
                   onClick={() => setFiltroDisponibilidad("todos")}
                 >
                   Todos
                 </button>
                 <button
-                  className={`pill ${
-                    filtroDisponibilidad === "inmediata" ? "active" : ""
-                  }`}
+                  className={`pill ${filtroDisponibilidad === "inmediata" ? "active" : ""}`}
                   onClick={() => setFiltroDisponibilidad("inmediata")}
                 >
                   Entrega inmediata
                 </button>
                 <button
-                  className={`pill ${
-                    filtroDisponibilidad === "encargo" ? "active" : ""
-                  }`}
+                  className={`pill ${filtroDisponibilidad === "encargo" ? "active" : ""}`}
                   onClick={() => setFiltroDisponibilidad("encargo")}
                 >
                   Por encargo
@@ -537,7 +550,7 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
               </div>
 
               {tiposDisponibles.length > 2 && (
-                <div className="filter-group">
+                <div className="filter-group scroll-touch">
                   <span className="filter-label">Tipo</span>
                   {tiposDisponibles.map((t) => (
                     <button
@@ -551,17 +564,16 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                 </div>
               )}
 
+              {/* Público sin Unisex */}
               {(seccionActual === "perfumeria" ||
                 seccionActual === "joyeria") &&
                 !esBusquedaActiva && (
-                  <div className="filter-group">
+                  <div className="filter-group scroll-touch">
                     <span className="filter-label">Público</span>
                     {CATEGORIAS.map((c) => (
                       <button
                         key={c.value}
-                        className={`pill ${
-                          categoria === c.value ? "active" : ""
-                        }`}
+                        className={`pill ${categoria === c.value ? "active" : ""}`}
                         onClick={() => setCategoria(c.value)}
                       >
                         {c.label}
@@ -571,7 +583,7 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                 )}
 
               {tamanos.length > 2 && (
-                <div className="filter-group">
+                <div className="filter-group scroll-touch">
                   <span className="filter-label">Tamaño</span>
                   {tamanos.map((t) => (
                     <button
@@ -727,9 +739,7 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                                   : `$${Number(p.precio).toLocaleString("es-AR")}`}
                               </span>
                               <span
-                                className={`card-stock ${
-                                  disp === "encargo" ? "out" : ""
-                                }`}
+                                className={`card-stock ${disp === "encargo" ? "out" : ""}`}
                               >
                                 {disp === "inmediata"
                                   ? "Entrega inmediata"
@@ -754,7 +764,6 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                   })}
                 </div>
 
-                {/* BOTÓN CARGAR MÁS PRODUCTOS */}
                 {limiteVisible < filtrados.length && (
                   <div style={{ textAlign: "center", margin: "20px 0 60px" }}>
                     <p
