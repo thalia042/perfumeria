@@ -5,34 +5,36 @@ import { supabase } from "../lib/supabaseClient";
 const WHATSAPP_NUMERO = "5492974437221";
 const PRODUCTOS_POR_PAGINA = 12;
 
-const SECCIONES = [
+const IMAGENES_DEFAULT = {
+  perfumeria:
+    "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=700&q=80&auto=format&fit=crop",
+  natura:
+    "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=700&q=80&auto=format&fit=crop",
+  avon: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=700&q=80&auto=format&fit=crop",
+  joyeria:
+    "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=700&q=80&auto=format&fit=crop",
+};
+
+const SECCIONES_BASE = [
   {
     id: "perfumeria",
     nombre: "Perfumería",
     descripcion: "Fragancias para mujer, hombre e infantil",
-    imagen:
-      "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=700&q=80&auto=format&fit=crop",
   },
   {
     id: "natura",
     nombre: "Natura",
     descripcion: "Líneas de cuidado diario, repuestos y perfumería",
-    imagen:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=700&q=80&auto=format&fit=crop",
   },
   {
     id: "avon",
     nombre: "Avon",
     descripcion: "Cosmética, fragancias y cuidado de la piel",
-    imagen:
-      "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=700&q=80&auto=format&fit=crop",
   },
   {
     id: "joyeria",
     nombre: "Perla Negra",
     descripcion: "Aros, collares, anillos, dijes y conjuntos de acero",
-    imagen:
-      "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=700&q=80&auto=format&fit=crop",
   },
 ];
 
@@ -51,7 +53,6 @@ const LABELS_TIPO = {
   conjunto: "Conjunto",
 };
 
-// Se eliminó 'unisex'
 const CATEGORIAS = [
   { value: "todas", label: "Todas" },
   { value: "mujer", label: "Mujer" },
@@ -139,11 +140,19 @@ function FotosCarrusel({ fotos, nombre }) {
   );
 }
 
-export default function Home({ initialPerfumes, initialPreciosOcultos }) {
+export default function Home({
+  initialPerfumes,
+  initialPreciosOcultos,
+  initialImagenesSecciones,
+}) {
   const [perfumes, setPerfumes] = useState(initialPerfumes || []);
   const [preciosOcultos, setPreciosOcultos] = useState(
     initialPreciosOcultos || [],
   );
+  const [imagenesSecciones, setImagenesSecciones] = useState(
+    initialImagenesSecciones || IMAGENES_DEFAULT,
+  );
+
   const [seccionActual, setSeccionActual] = useState(null);
   const [categoria, setCategoria] = useState("todas");
   const [tamano, setTamano] = useState("todos");
@@ -153,7 +162,6 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
   const [orden, setOrden] = useState("nuevos");
   const [tipo, setTipo] = useState("todos");
 
-  // Controla el colapsable de filtros en celular
   const [mostrarFiltrosMobile, setMostrarFiltrosMobile] = useState(false);
   const [limiteVisible, setLimiteVisible] = useState(PRODUCTOS_POR_PAGINA);
 
@@ -172,13 +180,24 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
 
   useEffect(() => {
     async function cargarConf() {
-      const { data } = await supabase
+      // 1. Precios
+      const { data: pConf } = await supabase
         .from("configuracion")
         .select("valor")
         .eq("clave", "precios_ocultos")
         .maybeSingle();
-      if (data?.valor && Array.isArray(data.valor)) {
-        setPreciosOcultos(data.valor);
+      if (pConf?.valor && Array.isArray(pConf.valor)) {
+        setPreciosOcultos(pConf.valor);
+      }
+
+      // 2. Portadas
+      const { data: imgConf } = await supabase
+        .from("configuracion")
+        .select("valor")
+        .eq("clave", "imagenes_secciones")
+        .maybeSingle();
+      if (imgConf?.valor) {
+        setImagenesSecciones((prev) => ({ ...prev, ...imgConf.valor }));
       }
     }
     cargarConf();
@@ -194,6 +213,14 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
 
     return () => clearInterval(intervalo);
   }, []);
+
+  // Construye la lista de secciones combinando los datos base con la foto actualizada
+  const secciones = useMemo(() => {
+    return SECCIONES_BASE.map((s) => ({
+      ...s,
+      imagen: imagenesSecciones[s.id] || IMAGENES_DEFAULT[s.id],
+    }));
+  }, [imagenesSecciones]);
 
   function tienePrecioOculto(p) {
     if (Number(p.precio) === 0) return true;
@@ -354,7 +381,6 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
     setMostrarFiltrosMobile(false);
   }
 
-  // Cuenta si hay algún filtro activo para mostrar una etiqueta indicativa en el botón móvil
   const hayFiltrosActivos =
     categoria !== "todas" ||
     tipo !== "todos" ||
@@ -404,7 +430,7 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                   verticalAlign: "middle",
                 }}
               >
-                {SECCIONES.map((sec) => (
+                {secciones.map((sec) => (
                   <button
                     key={sec.id}
                     className={`pill ${seccionActual === sec.id ? "active" : ""}`}
@@ -473,7 +499,7 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
 
         {!seccionActual && !esBusquedaActiva ? (
           <div className="secciones-grid">
-            {SECCIONES.map((sec) => {
+            {secciones.map((sec) => {
               const cant = perfumes.filter((p) => {
                 const s =
                   p.secciones && p.secciones.length > 0
@@ -489,7 +515,9 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                   key={sec.id}
                   className="seccion-banner-card"
                   onClick={() => cambiarSeccion(sec.id)}
-                  style={{ backgroundImage: `url(${sec.imagen})` }}
+                  style={{
+                    backgroundImage: `url(${optimizarUrl(sec.imagen)})`,
+                  }}
                 >
                   <div className="seccion-banner-overlay" />
                   <div className="seccion-banner-content">
@@ -505,7 +533,6 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
           </div>
         ) : (
           <>
-            {/* BOTÓN COLAPSABLE PARA CELULAR */}
             <div className="mobile-filter-toggle-wrap">
               <button
                 type="button"
@@ -523,7 +550,6 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
               </button>
             </div>
 
-            {/* CONTENEDOR DE FILTROS: En escritorio visible siempre, en celular solo si se abre */}
             <div
               className={`filters ${mostrarFiltrosMobile ? "open-mobile" : ""}`}
             >
@@ -564,7 +590,6 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                 </div>
               )}
 
-              {/* Público sin Unisex */}
               {(seccionActual === "perfumeria" ||
                 seccionActual === "joyeria") &&
                 !esBusquedaActiva && (
@@ -636,7 +661,7 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
                           <FotosCarrusel fotos={p.fotos} nombre={p.nombre} />
                           <div className="card-badges-left">
                             {secs.map((sId) => {
-                              const matchSec = SECCIONES.find(
+                              const matchSec = secciones.find(
                                 (s) => s.id === sId,
                               );
                               if (!matchSec) return null;
@@ -813,16 +838,23 @@ export async function getServerSideProps() {
     .select("*")
     .order("created_at", { ascending: false });
 
-  const { data: conf } = await supabase
+  const { data: confPrecios } = await supabase
     .from("configuracion")
     .select("valor")
     .eq("clave", "precios_ocultos")
     .maybeSingle();
 
+  const { data: confImg } = await supabase
+    .from("configuracion")
+    .select("valor")
+    .eq("clave", "imagenes_secciones")
+    .maybeSingle();
+
   return {
     props: {
       initialPerfumes: perfumes || [],
-      initialPreciosOcultos: conf?.valor || [],
+      initialPreciosOcultos: confPrecios?.valor || [],
+      initialImagenesSecciones: confImg?.valor || IMAGENES_DEFAULT,
     },
   };
 }

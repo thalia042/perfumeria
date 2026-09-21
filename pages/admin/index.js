@@ -15,7 +15,6 @@ const CATEGORIAS = [
   { value: "mujer", label: "Mujer" },
   { value: "hombre", label: "Hombre" },
   { value: "infantil", label: "Infantil" },
-  { value: "unisex", label: "Unisex" },
 ];
 
 const TIPOS_POR_SECCION = {
@@ -110,8 +109,8 @@ function calcularSiguienteCodigo(perfumes) {
     sugerido: `${mejor.prefijo}${siguienteNum}`,
   };
 }
-// Compresión segura que no rompe la subida si falla el canvas
-async function comprimirImagen(archivo, maxWidth = 1000, calidad = 0.75) {
+
+async function comprimirImagen(archivo, maxWidth = 900, calidad = 0.7) {
   if (!archivo || !archivo.type.startsWith("image/")) {
     return archivo;
   }
@@ -143,7 +142,7 @@ async function comprimirImagen(archivo, maxWidth = 1000, calidad = 0.75) {
 
           canvas.toBlob(
             (blob) => {
-              if (!blob) return resolve(archivo); // Fallback al original
+              if (!blob) return resolve(archivo);
               const archivoComprimido = new File([blob], `${Date.now()}.jpg`, {
                 type: "image/jpeg",
               });
@@ -153,7 +152,7 @@ async function comprimirImagen(archivo, maxWidth = 1000, calidad = 0.75) {
             calidad,
           );
         } catch (err) {
-          resolve(archivo); // Fallback al original ante cualquier fallo de memoria
+          resolve(archivo);
         }
       };
 
@@ -169,6 +168,10 @@ export default function Admin() {
   const [checking, setChecking] = useState(true);
   const [perfumes, setPerfumes] = useState([]);
   const [preciosOcultos, setPreciosOcultos] = useState([]);
+  const [imagenesSecciones, setImagenesSecciones] = useState({});
+  const [subiendoPortada, setSubiendoPortada] = useState(null);
+
+  // 'nuevo' | 'lista' | 'precios' | 'portadas'
   const [tabActiva, setTabActiva] = useState("nuevo");
   const [mostrarAvanzados, setMostrarAvanzados] = useState(false);
   const [seccionConfigOcultar, setSeccionConfigOcultar] =
@@ -177,15 +180,11 @@ export default function Admin() {
   const [filtroSeccionLista, setFiltroSeccionLista] = useState("todas");
   const [ordenLista, setOrdenLista] = useState("nuevos");
   const [busqueda, setBusqueda] = useState("");
+
   const ITEMS_POR_PAGINA_ADMIN = 6;
   const [limiteListaAdmin, setLimiteListaAdmin] = useState(
     ITEMS_POR_PAGINA_ADMIN,
   );
-
-  // Vuelve a 6 cada vez que filtrás por sección, buscás o cambiás el orden
-  useEffect(() => {
-    setLimiteListaAdmin(ITEMS_POR_PAGINA_ADMIN);
-  }, [filtroSeccionLista, ordenLista, busqueda]);
 
   const [form, setForm] = useState(FORM_VACIO);
   const [files, setFiles] = useState([]);
@@ -198,13 +197,17 @@ export default function Admin() {
   );
 
   useEffect(() => {
+    setLimiteListaAdmin(ITEMS_POR_PAGINA_ADMIN);
+  }, [filtroSeccionLista, ordenLista, busqueda]);
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
         router.replace("/admin/login");
       } else {
         setChecking(false);
         cargarPerfumes();
-        cargarConfiguracion();
+        cargarConfiguraciones();
       }
     });
   }, [router]);
@@ -217,13 +220,22 @@ export default function Admin() {
     if (data) setPerfumes(data);
   }, []);
 
-  const cargarConfiguracion = useCallback(async () => {
-    const { data } = await supabase
+  const cargarConfiguraciones = useCallback(async () => {
+    // 1. Precios ocultos
+    const { data: confPrecios } = await supabase
       .from("configuracion")
       .select("valor")
       .eq("clave", "precios_ocultos")
       .maybeSingle();
-    if (data?.valor) setPreciosOcultos(data.valor);
+    if (confPrecios?.valor) setPreciosOcultos(confPrecios.valor);
+
+    // 2. Imágenes de secciones
+    const { data: confImg } = await supabase
+      .from("configuracion")
+      .select("valor")
+      .eq("clave", "imagenes_secciones")
+      .maybeSingle();
+    if (confImg?.valor) setImagenesSecciones(confImg.valor);
   }, []);
 
   async function toggleOcultarPrecio(secId, tipo) {
@@ -237,6 +249,46 @@ export default function Admin() {
       clave: "precios_ocultos",
       valor: nuevo,
     });
+  }
+
+  async function subirPortadaSeccion(secId, archivo) {
+    if (!archivo) return;
+    setSubiendoPortada(secId);
+    try {
+      const fotoOptimizada = await comprimirImagen(archivo, 1000, 0.75);
+      const ext = fotoOptimizada.name.split(".").pop() || "jpg";
+      const path = `portada-${secId}-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("perfumes-fotos")
+        .upload(path, fotoOptimizada, {
+          contentType: fotoOptimizada.type || "image/jpeg",
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: pub } = supabase.storage
+        .from("perfumes-fotos")
+        .getPublicUrl(path);
+
+      if (pub?.publicUrl) {
+        const nuevasImg = {
+          ...imagenesSecciones,
+          [secId]: pub.publicUrl,
+        };
+        setImagenesSecciones(nuevasImg);
+        await supabase.from("configuracion").upsert({
+          clave: "imagenes_secciones",
+          valor: nuevasImg,
+        });
+        alert(`¡Portada de ${secId} actualizada con éxito!`);
+      }
+    } catch (err) {
+      alert("Error al subir portada: " + (err.message || err));
+    } finally {
+      setSubiendoPortada(null);
+    }
   }
 
   async function handleLogout() {
@@ -318,9 +370,7 @@ export default function Admin() {
       if (files.length > 0) {
         const urlsNuevas = [];
         for (const f of files) {
-          // Comprime la imagen de forma segura
-          const fotoAEnviar = await comprimirImagen(f, 800, 0.65);
-
+          const fotoAEnviar = await comprimirImagen(f, 900, 0.7);
           const ext = fotoAEnviar.name.split(".").pop() || "jpg";
           const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
@@ -482,6 +532,7 @@ export default function Admin() {
         </div>
       </div>
 
+      {/* 4 PESTAÑAS: CARGAR / LISTA / PRECIOS / PORTADAS */}
       <div
         style={{
           background: "#fff",
@@ -495,7 +546,7 @@ export default function Admin() {
           className="container"
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
+            gridTemplateColumns: "1fr 1fr 1fr 1fr",
             padding: 0,
           }}
         >
@@ -503,10 +554,10 @@ export default function Admin() {
             type="button"
             onClick={() => setTabActiva("nuevo")}
             style={{
-              padding: "14px 8px",
+              padding: "14px 4px",
               border: "none",
               background: "none",
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 600,
               color: tabActiva === "nuevo" ? "#6B1E3C" : "#777",
               borderBottom:
@@ -520,10 +571,10 @@ export default function Admin() {
             type="button"
             onClick={() => setTabActiva("lista")}
             style={{
-              padding: "14px 8px",
+              padding: "14px 4px",
               border: "none",
               background: "none",
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 600,
               color: tabActiva === "lista" ? "#6B1E3C" : "#777",
               borderBottom:
@@ -537,10 +588,10 @@ export default function Admin() {
             type="button"
             onClick={() => setTabActiva("precios")}
             style={{
-              padding: "14px 8px",
+              padding: "14px 4px",
               border: "none",
               background: "none",
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 600,
               color: tabActiva === "precios" ? "#6B1E3C" : "#777",
               borderBottom:
@@ -549,6 +600,23 @@ export default function Admin() {
             }}
           >
             Precios
+          </button>
+          <button
+            type="button"
+            onClick={() => setTabActiva("portadas")}
+            style={{
+              padding: "14px 4px",
+              border: "none",
+              background: "none",
+              fontSize: 13,
+              fontWeight: 600,
+              color: tabActiva === "portadas" ? "#6B1E3C" : "#777",
+              borderBottom:
+                tabActiva === "portadas" ? "3px solid #6B1E3C" : "none",
+              cursor: "pointer",
+            }}
+          >
+            Portadas
           </button>
         </div>
       </div>
@@ -1369,7 +1437,6 @@ export default function Admin() {
                 </div>
               )}
 
-              {/* BOTÓN CARGAR MÁS PRODUCTOS (ADMIN) */}
               {limiteListaAdmin < perfumesVisibles.length && (
                 <div style={{ textAlign: "center", margin: "16px 0 24px" }}>
                   <p style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
@@ -1479,6 +1546,113 @@ export default function Admin() {
                       {oculto ? "Oculto" : "Visible"}
                     </span>
                   </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* PESTAÑA 4: CAMBIAR FOTOS DE LAS PORTADAS */}
+        {tabActiva === "portadas" && (
+          <div
+            style={{
+              background: "#fff",
+              padding: 16,
+              borderRadius: 10,
+              border: "1px solid #ebd9c8",
+            }}
+          >
+            <h3 style={{ margin: "0 0 10px 0", fontSize: 16 }}>
+              Fotos de portada de las secciones
+            </h3>
+            <p style={{ fontSize: 13, color: "#666", marginBottom: 18 }}>
+              Subí fotos representativas para los 4 bloques principales. Se
+              comprimen solas antes de guardarse.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {SECCIONES_DISPONIBLES.map((sec) => {
+                const imgActual = imagenesSecciones[sec.id];
+                const estaSubiendo = subiendoPortada === sec.id;
+
+                return (
+                  <div
+                    key={sec.id}
+                    style={{
+                      border: "1px solid #ebd9c8",
+                      borderRadius: 8,
+                      padding: 12,
+                      display: "flex",
+                      gap: 12,
+                      alignItems: "center",
+                    }}
+                  >
+                    {imgActual ? (
+                      <img
+                        src={imgActual}
+                        alt={sec.label}
+                        style={{
+                          width: 75,
+                          height: 75,
+                          borderRadius: 8,
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 75,
+                          height: 75,
+                          borderRadius: 8,
+                          background: "#f0ece7",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          color: "#999",
+                        }}
+                      >
+                        Sin foto
+                      </div>
+                    )}
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong
+                        style={{
+                          fontSize: 15,
+                          display: "block",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {sec.label}
+                      </strong>
+                      <label
+                        style={{
+                          display: "inline-block",
+                          padding: "6px 12px",
+                          background: estaSubiendo ? "#eee" : "#f4ede6",
+                          color: "#6B1E3C",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: estaSubiendo ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {estaSubiendo ? "Subiendo…" : "Cambiar foto"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={estaSubiendo}
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) {
+                              subirPortadaSeccion(sec.id, e.target.files[0]);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
                 );
               })}
             </div>
