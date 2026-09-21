@@ -177,6 +177,15 @@ export default function Admin() {
   const [filtroSeccionLista, setFiltroSeccionLista] = useState("todas");
   const [ordenLista, setOrdenLista] = useState("nuevos");
   const [busqueda, setBusqueda] = useState("");
+  const ITEMS_POR_PAGINA_ADMIN = 6;
+  const [limiteListaAdmin, setLimiteListaAdmin] = useState(
+    ITEMS_POR_PAGINA_ADMIN,
+  );
+
+  // Vuelve a 6 cada vez que filtrás por sección, buscás o cambiás el orden
+  useEffect(() => {
+    setLimiteListaAdmin(ITEMS_POR_PAGINA_ADMIN);
+  }, [filtroSeccionLista, ordenLista, busqueda]);
 
   const [form, setForm] = useState(FORM_VACIO);
   const [files, setFiles] = useState([]);
@@ -424,6 +433,8 @@ export default function Admin() {
       }
       return new Date(b.created_at) - new Date(a.created_at);
     });
+
+  const perfumesRenderizadosAdmin = perfumesVisibles.slice(0, limiteListaAdmin);
 
   return (
     <div
@@ -1204,7 +1215,7 @@ export default function Admin() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {perfumesVisibles.map((p) => {
+              {perfumesRenderizadosAdmin.map((p) => {
                 const disp =
                   p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
                 return (
@@ -1224,6 +1235,7 @@ export default function Admin() {
                       <img
                         src={p.fotos[0]}
                         alt=""
+                        loading="lazy"
                         style={{
                           width: 65,
                           height: 65,
@@ -1348,11 +1360,42 @@ export default function Admin() {
                   </div>
                 );
               })}
+
               {perfumesVisibles.length === 0 && (
                 <div
                   style={{ textAlign: "center", padding: 30, color: "#888" }}
                 >
                   No se encontraron productos con ese filtro o búsqueda.
+                </div>
+              )}
+
+              {/* BOTÓN CARGAR MÁS PRODUCTOS (ADMIN) */}
+              {limiteListaAdmin < perfumesVisibles.length && (
+                <div style={{ textAlign: "center", margin: "16px 0 24px" }}>
+                  <p style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+                    Mostrando {limiteListaAdmin} de {perfumesVisibles.length}{" "}
+                    productos
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLimiteListaAdmin(
+                        (prev) => prev + ITEMS_POR_PAGINA_ADMIN,
+                      )
+                    }
+                    style={{
+                      padding: "10px 20px",
+                      background: "#f4ede6",
+                      color: "#6B1E3C",
+                      border: "1px solid #ebd9c8",
+                      borderRadius: 20,
+                      fontWeight: 600,
+                      fontSize: 13,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Ver más productos
+                  </button>
                 </div>
               )}
             </div>
