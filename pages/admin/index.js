@@ -256,13 +256,14 @@ export default function Admin() {
     setSubiendoPortada(secId);
     try {
       const fotoOptimizada = await comprimirImagen(archivo, 1000, 0.75);
-      const ext = fotoOptimizada.name.split(".").pop() || "jpg";
-      const path = `portada-${secId}-${Date.now()}.${ext}`;
+      const ext = "jpg";
+      // Nombre único con timestamp y random
+      const path = `portadas/portada-${secId}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("perfumes-fotos")
         .upload(path, fotoOptimizada, {
-          contentType: fotoOptimizada.type || "image/jpeg",
+          contentType: "image/jpeg",
           upsert: true,
         });
 
@@ -278,10 +279,14 @@ export default function Admin() {
           [secId]: pub.publicUrl,
         };
         setImagenesSecciones(nuevasImg);
-        await supabase.from("configuracion").upsert({
+
+        const { error: dbError } = await supabase.from("configuracion").upsert({
           clave: "imagenes_secciones",
           valor: nuevasImg,
         });
+
+        if (dbError) throw dbError;
+
         alert(`¡Portada de ${secId} actualizada con éxito!`);
       }
     } catch (err) {
