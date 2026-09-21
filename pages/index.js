@@ -61,18 +61,17 @@ function normalizarTexto(str) {
 
 function WhatsAppIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
       <path
-        d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.63C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2Z"
-        fill="#25D366"
-      />
-      <path
-        d="M17.52 14.33C17.22 14.18 15.75 13.45 15.48 13.35C15.2 13.25 15 13.2 14.8 13.5C14.6 13.8 14.03 14.48 13.85 14.68C13.68 14.88 13.5 14.9 13.2 14.75C12.9 14.6 11.95 14.29 10.82 13.28C9.94 12.49 9.35 11.52 9.17 11.22C9 10.92 9.15 10.76 9.3 10.61C9.43 10.48 9.6 10.26 9.75 10.08C9.9 9.9 9.95 9.78 10.05 9.58C10.15 9.38 10.1 9.2 10.02 9.05C9.95 8.9 9.37 7.48 9.13 6.9C8.9 6.34 8.66 6.42 8.48 6.41C8.31 6.4 8.11 6.4 7.91 6.4C7.71 6.4 7.39 6.48 7.11 6.78C6.84 7.08 6.06 7.81 6.06 9.28C6.06 10.75 7.13 12.18 7.28 12.38C7.43 12.58 9.39 15.6 12.4 16.9C13.12 17.21 13.68 17.4 14.12 17.54C14.84 17.77 15.5 17.74 16.02 17.66C16.6 17.57 17.81 16.92 18.06 16.22C18.31 15.52 18.31 14.92 18.23 14.8C18.16 14.68 17.82 14.48 17.52 14.33Z"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2C6.48 2 2 6.48 2 12C2 13.85 2.5 15.58 3.39 17.06L2.06 21.94L7.07 20.63C8.51 21.5 10.2 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM17.47 16.51C17.24 17.15 16.33 17.67 15.54 17.84C15 17.95 14.3 18.04 12.22 17.18C9.55 16.08 7.84 13.37 7.7 13.19C7.57 13.02 6.62 11.75 6.62 10.44C6.62 9.13 7.29 8.49 7.52 8.23C7.75 7.97 8.03 7.9 8.22 7.9C8.36 7.9 8.52 7.91 8.65 7.91C8.82 7.92 8.94 7.93 9.06 8.21C9.21 8.58 9.57 9.47 9.61 9.56C9.66 9.66 9.68 9.77 9.61 9.91C9.54 10.05 9.49 10.13 9.38 10.26C9.27 10.39 9.16 10.48 9.05 10.62C8.93 10.74 8.81 10.88 8.95 11.12C9.09 11.36 9.57 12.15 10.28 12.78C11.19 13.59 11.94 13.85 12.18 13.97C12.42 14.09 12.56 14.07 12.7 13.91C12.84 13.75 13.3 13.21 13.48 12.96C13.66 12.71 13.84 12.75 14.08 12.84C14.32 12.93 15.61 13.57 15.87 13.7C16.13 13.83 16.31 13.89 16.38 14C16.44 14.12 16.44 14.7 16.21 15.34L17.47 16.51Z"
         fill="#FFFFFF"
       />
     </svg>
   );
 }
+
 function optimizarUrl(url) {
   if (!url || !url.startsWith("http")) return url;
   // Redimensiona a un ancho máximo de 600px, comprime al 75% y convierte a formato liviano
@@ -209,18 +208,24 @@ export default function Home({ initialPerfumes, initialPreciosOcultos }) {
   function consultarProductoDirecto(p, e) {
     e.stopPropagation();
     const oculto = tienePrecioOculto(p);
-    const precioTxt = oculto
-      ? "consultar el precio"
-      : `precio $${Number(p.precio).toLocaleString("es-AR")}`;
+    const disp = p.disponibilidad || (p.en_stock ? "inmediata" : "encargo");
     const dispTxt =
-      (p.disponibilidad || (p.en_stock ? "inmediata" : "encargo")) ===
-      "inmediata"
-        ? "para retiro inmediato"
-        : "para encargar";
+      disp === "inmediata"
+        ? "Entrega inmediata"
+        : "Por encargo (con seña/abono previo)";
+    const medidaTxt = p.tamano ? ` (${p.tamano})` : "";
+    const codigoTxt = p.codigo ? `[${p.codigo}] ` : "";
 
-    const mensaje = `¡Hola! Me interesa este producto del catálogo:\n\n• ${
-      p.codigo ? `[${p.codigo}] ` : ""
-    }${p.nombre} (${p.tamano || "Estándar"}) - ${dispTxt}\n\n¿Me podrías confirmar disponibilidad y precio?`;
+    let mensaje = "";
+
+    if (oculto) {
+      // Si el precio es 0 o está oculto por sección
+      mensaje = `¡Hola! Me interesa este artículo del catálogo:\n\n• ${codigoTxt}${p.nombre}${medidaTxt}\n• Modalidad: ${dispTxt}\n\n¿Me podrías confirmar el precio y la disponibilidad para coordinar?`;
+    } else {
+      // Si ya tiene precio visible ($20.000, $34.500, etc.)
+      const precioFormateado = `$${Number(p.precio).toLocaleString("es-AR")}`;
+      mensaje = `¡Hola! Me interesa comprar este artículo del catálogo:\n\n• ${codigoTxt}${p.nombre}${medidaTxt}\n• Precio: ${precioFormateado}\n• Modalidad: ${dispTxt}\n\n¿Sigue disponible para coordinar la entrega?`;
+    }
 
     window.open(
       `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`,
