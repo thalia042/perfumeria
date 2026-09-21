@@ -15,6 +15,13 @@ const IMAGENES_DEFAULT = {
     "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=700&q=80&auto=format&fit=crop",
 };
 
+const TIPO_DEFAULT_POR_SECCION = {
+  perfumeria: "perfume",
+  natura: "crema",
+  joyeria: "aros",
+  avon: "todos",
+};
+
 const SECCIONES_BASE = [
   {
     id: "perfumeria",
@@ -374,7 +381,13 @@ export default function Home({
 
   function cambiarSeccion(secId) {
     setSeccionActual(secId);
-    setTipo("todos");
+
+    // Si la sección tiene un tipo asignado por defecto, entra con ese seleccionado
+    const tipoInicial = secId
+      ? TIPO_DEFAULT_POR_SECCION[secId] || "todos"
+      : "todos";
+    setTipo(tipoInicial);
+
     setCategoria("todas");
     setTamano("todos");
     setFiltroDisponibilidad("todos");
@@ -542,7 +555,7 @@ export default function Home({
                 <span>
                   {mostrarFiltrosMobile
                     ? "▲ Ocultar filtros"
-                    : "⚡ Filtrar productos"}
+                    : "Filtrar productos"}
                 </span>
                 {hayFiltrosActivos && (
                   <span className="filter-dot-active">● Activos</span>
