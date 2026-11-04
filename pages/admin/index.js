@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { supabase } from "../../lib/supabaseClient";
+import html2canvas from "html2canvas";
 
 const SECCIONES_DISPONIBLES = [
   { id: "perfumeria", label: "Perfumería" },
@@ -190,6 +191,78 @@ export default function Admin() {
   const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // ==========================================
+  // 1. ESTADOS PARA LAS CAPTURAS
+  // ==========================================
+  const [productoCaptura, setProductoCaptura] = useState(null);
+  const [listaCaptura, setListaCaptura] = useState(null);
+
+  // ==========================================
+  // 2. EFECTO PARA EL FLYER INDIVIDUAL
+  // ==========================================
+  useEffect(() => {
+    if (productoCaptura) {
+      const generarImagen = async () => {
+        const elemento = document.getElementById("flyer-export");
+        if (elemento) {
+          setTimeout(async () => {
+            try {
+              const canvas = await html2canvas(elemento, {
+                useCORS: true,
+                scale: 2,
+                backgroundColor: "#121212",
+              });
+              const dataUrl = canvas.toDataURL("image/png");
+              const enlace = document.createElement("a");
+              enlace.href = dataUrl;
+              enlace.download = `${productoCaptura.codigo || "Flyer"}-${productoCaptura.nombre}.png`;
+              enlace.click();
+            } catch (err) {
+              console.error("Error al generar imagen:", err);
+              alert("Error al generar la imagen.");
+            } finally {
+              setProductoCaptura(null);
+            }
+          }, 500);
+        }
+      };
+      generarImagen();
+    }
+  }, [productoCaptura]); // <-- AQUÍ SE CIERRA EL PRIMER EFECTO CORRECTAMENTE
+
+  // ==========================================
+  // 3. EFECTO PARA EL FLYER GRUPAL (CATEGORÍAS)
+  // ==========================================
+  useEffect(() => {
+    if (listaCaptura) {
+      const generarImagen = async () => {
+        const elemento = document.getElementById("flyer-lista-export");
+        if (elemento) {
+          setTimeout(async () => {
+            try {
+              const canvas = await html2canvas(elemento, {
+                useCORS: true,
+                scale: 2,
+                backgroundColor: "#000000",
+              });
+              const dataUrl = canvas.toDataURL("image/png");
+              const enlace = document.createElement("a");
+              enlace.href = dataUrl;
+              enlace.download = `Flyer-${listaCaptura.titulo}.png`;
+              enlace.click();
+            } catch (err) {
+              console.error("Error al generar imagen de lista:", err);
+              alert("Error al generar el flyer.");
+            } finally {
+              setListaCaptura(null);
+            }
+          }, 1200);
+        }
+      };
+      generarImagen();
+    }
+  }, [listaCaptura]); // <-- AQUÍ SE CIERRA EL SEGUNDO EFECTO CORRECTAMENTE
 
   const siguienteCodigo = useMemo(
     () => calcularSiguienteCodigo(perfumes),
@@ -1199,6 +1272,62 @@ export default function Admin() {
 
         {tabActiva === "lista" && (
           <div>
+            {/* 👇 3. BOTONERA PARA CREAR FLYERS GRUPALES */}
+            <div
+              style={{
+                background: "#fff",
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "1px solid #ebd9c8",
+                marginBottom: 14,
+              }}
+            >
+              <h3
+                style={{ margin: "0 0 10px 0", fontSize: 13, color: "#6B1E3C" }}
+              >
+                Flyer por Categoría (Toma hasta 9)
+              </h3>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  overflowX: "auto",
+                  paddingBottom: 6,
+                }}
+              >
+                {TODOS_LOS_TIPOS.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => {
+                      // 👇 CAMBIA EL .slice(0, 6) a .slice(0, 9)
+                      const prods = perfumes
+                        .filter((p) => p.tipo === t.value)
+                        .slice(0, 9);
+                      if (prods.length === 0)
+                        return alert(
+                          `No hay ${t.label} cargados en el sistema.`,
+                        );
+                      setListaCaptura({ titulo: t.label, productos: prods });
+                    }}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 20,
+                      border: "1px solid #d4af37",
+                      background: "#fdf8f4",
+                      color: "#9a7b1e",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Flyer de {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* FIN BOTONERA GRUPAL */}
             <input
               type="text"
               placeholder="Buscar por nombre, código o marca…"
@@ -1400,6 +1529,24 @@ export default function Admin() {
                         gap: 6,
                       }}
                     >
+                      {/* 👇 3. AGREGA ESTE BOTÓN NUEVO */}
+                      <button
+                        type="button"
+                        onClick={() => setProductoCaptura(p)}
+                        style={{
+                          padding: "6px 10px",
+                          background: "#fdf8f4",
+                          border: "1px solid #d4af37",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#9a7b1e",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Flyer
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => editar(p)}
@@ -1664,6 +1811,375 @@ export default function Admin() {
           </div>
         )}
       </div>
+      {/* PESTAÑA 4: CAMBIAR FOTOS DE LAS PORTADAS */}
+      {tabActiva === "portadas" && (
+        <div
+          style={{
+            background: "#fff",
+            padding: 16,
+            borderRadius: 10,
+            border: "1px solid #ebd9c8",
+          }}
+        >
+          <h3 style={{ margin: "0 0 10px 0", fontSize: 16 }}>
+            Fotos de portada de las secciones
+          </h3>
+          <p style={{ fontSize: 13, color: "#666", marginBottom: 18 }}>
+            Subí fotos representativas para los 4 bloques principales. Se
+            comprimen solas antes de guardarse.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {SECCIONES_DISPONIBLES.map((sec) => {
+              const imgActual = imagenesSecciones[sec.id];
+              const estaSubiendo = subiendoPortada === sec.id;
+
+              return (
+                <div
+                  key={sec.id}
+                  style={{
+                    border: "1px solid #ebd9c8",
+                    borderRadius: 8,
+                    padding: 12,
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "center",
+                  }}
+                >
+                  {imgActual ? (
+                    <img
+                      src={imgActual}
+                      alt={sec.label}
+                      style={{
+                        width: 75,
+                        height: 75,
+                        borderRadius: 8,
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 75,
+                        height: 75,
+                        borderRadius: 8,
+                        background: "#f0ece7",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 11,
+                        color: "#999",
+                      }}
+                    >
+                      Sin foto
+                    </div>
+                  )}
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong
+                      style={{
+                        fontSize: 15,
+                        display: "block",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {sec.label}
+                    </strong>
+                    <label
+                      style={{
+                        display: "inline-block",
+                        padding: "6px 12px",
+                        background: estaSubiendo ? "#eee" : "#f4ede6",
+                        color: "#6B1E3C",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: estaSubiendo ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {estaSubiendo ? "Subiendo…" : "Cambiar foto"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={estaSubiendo}
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) {
+                            subirPortadaSeccion(sec.id, e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {/* ==================================================== */}
+      {/* PLANTILLA OCULTA PARA DESCARGAR REDES SOCIALES       */}
+      {/* ==================================================== */}
+      {productoCaptura && (
+        <div style={{ position: "fixed", left: "-9999px", top: 0 }}>
+          <div
+            id="flyer-export"
+            style={{
+              width: "540px", // Mitad exacta de 1080px (se duplica con scale: 2)
+              height: "960px", // Mitad exacta de 1920px (se duplica con scale: 2)
+              backgroundColor: "#000000", // El borde exterior totalmente negro
+              padding: "28px", // Grosor del borde negro
+              boxSizing: "border-box",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Tarjeta interior con bordes redondeados */}
+            <div
+              style={{
+                backgroundColor: "#151515", // Un gris casi negro para resaltar sobre el borde puro
+                borderRadius: "24px",
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                height: "100%",
+                fontFamily: "system-ui, -apple-system, sans-serif",
+              }}
+            >
+              {/* Imagen (ocupa automáticamente todo el espacio superior disponible) */}
+              {productoCaptura.fotos && productoCaptura.fotos[0] ? (
+                <img
+                  src={productoCaptura.fotos[0]}
+                  crossOrigin="anonymous"
+                  style={{
+                    width: "100%",
+                    flex: 1,
+                    objectFit: "cover",
+                    minHeight: 0,
+                  }}
+                  alt="producto"
+                />
+              ) : (
+                <div style={{ width: "100%", flex: 1, background: "#333" }} />
+              )}
+
+              {/* Textos del producto con tipografía un poco más grande para este tamaño */}
+              <div style={{ padding: "36px 40px", backgroundColor: "#151515" }}>
+                {productoCaptura.codigo && (
+                  <p
+                    style={{
+                      color: "#d4af37",
+                      fontSize: "18px",
+                      fontWeight: "bold",
+                      margin: "0 0 12px 0",
+                      letterSpacing: "2px",
+                    }}
+                  >
+                    {productoCaptura.codigo}
+                  </p>
+                )}
+
+                <h2
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "40px",
+                    margin: "0 0 12px 0",
+                    fontFamily: "serif",
+                    fontWeight: "600",
+                    lineHeight: 1.1,
+                  }}
+                >
+                  {productoCaptura.nombre}
+                </h2>
+
+                <p
+                  style={{
+                    color: "#cccccc",
+                    fontSize: "20px",
+                    margin: "0 0 28px 0",
+                  }}
+                >
+                  {productoCaptura.marca || "Sin marca"}{" "}
+                  {productoCaptura.tamano ? `• ${productoCaptura.tamano}` : ""}
+                </p>
+
+                <h3
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "32px",
+                    margin: 0,
+                    fontFamily: "serif",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {preciosOcultos.includes(
+                    `${productoCaptura.secciones?.[0] || "perfumeria"}:${productoCaptura.tipo || "perfume"}`,
+                  )
+                    ? "Consultar precio"
+                    : `$${Number(productoCaptura.precio).toLocaleString("es-AR")}`}
+                </h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ==================================================== */}
+      {/* FIN DE PLANTILLA OCULTA                              */}
+      {/* ==================================================== */}
+      {/* ==================================================== */}
+      {/* PLANTILLA OCULTA PARA FLYERS GRUPALES (CATEGORÍAS)   */}
+      {/* ==================================================== */}
+      {listaCaptura && (
+        <div style={{ position: "fixed", left: "-9999px", top: 0 }}>
+          <div
+            id="flyer-lista-export"
+            style={{
+              width: "540px",
+              height: "960px",
+              backgroundColor: "#000000",
+              padding: "28px",
+              boxSizing: "border-box",
+              display: "flex",
+              flexDirection: "column",
+              fontFamily: "system-ui, -apple-system, sans-serif",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "#151515",
+                borderRadius: "24px",
+                padding: "30px 24px",
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                height: "100%",
+                boxSizing: "border-box",
+              }}
+            >
+              {/* Título de la Categoría */}
+              <div style={{ textAlign: "center", marginBottom: "24px" }}>
+                <h2
+                  style={{
+                    color: "#d4af37",
+                    fontSize: "38px",
+                    margin: "0 0 6px 0",
+                    fontFamily: "serif",
+                    letterSpacing: "3px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {listaCaptura.titulo}
+                </h2>
+                <p style={{ color: "#888", margin: 0, fontSize: "15px" }}>
+                  Disponibles en el catálogo
+                </p>
+              </div>
+
+              {/* GRILLA ACTUALIZADA A 3 COLUMNAS Y PROPORCIÓN 5:7 */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: "16px 12px",
+                  flex: 1,
+                  alignContent: "start",
+                }}
+              >
+                {listaCaptura.productos.map((p) => {
+                  const clave = `${p.secciones?.[0] || "perfumeria"}:${p.tipo || "perfume"}`;
+                  const oculto = preciosOcultos.includes(clave);
+                  const precioTxt = oculto
+                    ? "Consultar"
+                    : `$${Number(p.precio).toLocaleString("es-AR")}`;
+
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                      }}
+                    >
+                      {p.fotos && p.fotos[0] ? (
+                        <img
+                          src={p.fotos[0]}
+                          crossOrigin="anonymous"
+                          style={{
+                            width: "100%",
+                            aspectRatio: "5/7",
+                            objectFit: "cover",
+                            borderRadius: "8px",
+                          }}
+                          alt={p.nombre}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "100%",
+                            aspectRatio: "5/7",
+                            backgroundColor: "#333",
+                            borderRadius: "8px",
+                          }}
+                        />
+                      )}
+                      <div>
+                        <div
+                          style={{
+                            color: "#fff",
+                            fontSize: "13px",
+                            fontWeight: "600",
+                            lineHeight: "1.2",
+                            marginBottom: "2px",
+                            overflow: "hidden",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                          }}
+                        >
+                          {p.nombre}
+                        </div>
+                        <div
+                          style={{
+                            color: "#d4af37",
+                            fontSize: "14px",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {precioTxt}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Pie de página de la imagen */}
+              <div
+                style={{
+                  textAlign: "center",
+                  marginTop: "auto",
+                  borderTop: "1px solid #333",
+                  paddingTop: "20px",
+                }}
+              >
+                <p
+                  style={{
+                    color: "#fff",
+                    margin: 0,
+                    fontSize: "18px",
+                    fontWeight: "500",
+                    letterSpacing: "1px",
+                  }}
+                >
+                  Consultanos por WhatsApp 💬
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
