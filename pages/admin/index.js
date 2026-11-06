@@ -265,6 +265,56 @@ export default function Admin() {
     });
   }, [router]);
 
+  // ==========================================
+  // EFECTOS PARA DESCARGAR LAS IMÁGENES (FALTANTES)
+  // ==========================================
+
+  // 1. Descargar Flyer Individual
+  useEffect(() => {
+    if (productoCaptura) {
+      setTimeout(async () => {
+        try {
+          const el = document.getElementById("flyer-export");
+          if (!el) return;
+          const canvas = await html2canvas(el, { scale: 2, useCORS: true });
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+          const link = document.createElement("a");
+          link.download = `flyer-${productoCaptura.nombre.replace(/\s+/g, "_")}.jpg`;
+          link.href = dataUrl;
+          link.click();
+        } catch (err) {
+          console.error("Error al generar flyer individual:", err);
+          alert("Hubo un error al crear la imagen.");
+        } finally {
+          setProductoCaptura(null);
+        }
+      }, 500); // Damos 500ms para que el DOM y las imágenes se rendericen
+    }
+  }, [productoCaptura]);
+
+  // 2. Descargar Flyer Grupal (El de la nueva pestaña y botones)
+  useEffect(() => {
+    if (listaCaptura) {
+      setTimeout(async () => {
+        try {
+          const el = document.getElementById("flyer-lista-export");
+          if (!el) return;
+          const canvas = await html2canvas(el, { scale: 2, useCORS: true });
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+          const link = document.createElement("a");
+          link.download = `flyer-${listaCaptura.titulo.replace(/\s+/g, "_")}.jpg`;
+          link.href = dataUrl;
+          link.click();
+        } catch (err) {
+          console.error("Error al generar flyer grupal:", err);
+          alert("Hubo un error al crear el flyer grupal.");
+        } finally {
+          setListaCaptura(null);
+        }
+      }, 500); // Damos 500ms para que la grilla y las fotos carguen
+    }
+  }, [listaCaptura]);
+
   const cargarPerfumes = useCallback(async () => {
     const { data } = await supabase
       .from("perfumes")
