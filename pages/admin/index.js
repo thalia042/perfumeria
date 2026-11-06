@@ -1321,17 +1321,92 @@ export default function Admin() {
 
         {tabActiva === "lista" && (
           <div>
+            <input
+              type="text"
+              placeholder="Buscar por nombre, código o marca…"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 8,
+                border: "1px solid #ccc",
+                marginBottom: 10,
+                fontSize: 15,
+              }}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap" /* 👇 Esto hace que los botones bajen 👇 */,
+                gap: 6,
+                marginBottom: 10,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setFiltroSeccionLista("todas")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 20,
+                  border: `1px solid ${
+                    filtroSeccionLista === "todas" ? "#6B1E3C" : "#ddd"
+                  }`,
+                  background:
+                    filtroSeccionLista === "todas" ? "#6B1E3C" : "#fff",
+                  color: filtroSeccionLista === "todas" ? "#fff" : "#2b2320",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                Todas las secciones
+              </button>
+              {SECCIONES_DISPONIBLES.map((sec) => (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => setFiltroSeccionLista(sec.id)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 20,
+                    border: `1px solid ${
+                      filtroSeccionLista === sec.id ? "#6B1E3C" : "#ddd"
+                    }`,
+                    background:
+                      filtroSeccionLista === sec.id ? "#6B1E3C" : "#fff",
+                    color: filtroSeccionLista === sec.id ? "#fff" : "#2b2320",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {sec.label}
+                </button>
+              ))}
+            </div>
+
             <div style={{ marginBottom: 14 }}>
               <select
                 value={ordenLista}
                 onChange={(e) => setOrdenLista(e.target.value)}
-                // ... (estilos del select)
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #ccc",
+                  fontSize: 13,
+                  background: "#fff",
+                }}
               >
-                {/* ... opciones ... */}
+                <option value="nuevos">Más nuevos primero</option>
+                <option value="precio_asc">Precio: menor a mayor</option>
+                <option value="precio_desc">Precio: mayor a menor</option>
+                <option value="codigo">Ordenar por Código</option>
+                <option value="nombre">Ordenar alfabéticamente (A-Z)</option>
               </select>
             </div>
 
-            {/* 👇 CHECKBOX PARA FLYER INDIVIDUAL 👇 */}
+            {/* 👇 CHECKBOX PARA FLYER INDIVIDUAL (Ubicado justo antes de la lista) 👇 */}
             <div
               style={{
                 marginBottom: 14,
@@ -1360,93 +1435,6 @@ export default function Admin() {
                 />
                 ✨ Agregar etiqueta "Nuevo Ingreso" al descargar flyer
               </label>
-            </div>
-            <input
-              type="text"
-              placeholder="Buscar por nombre, código o marca…"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 8,
-                border: "1px solid #ccc",
-                marginBottom: 10,
-                fontSize: 15,
-              }}
-            />
-
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                marginBottom: 10,
-                overflowX: "auto",
-                paddingBottom: 4,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setFiltroSeccionLista("todas")}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 20,
-                  border: `1px solid ${
-                    filtroSeccionLista === "todas" ? "#6B1E3C" : "#ddd"
-                  }`,
-                  background:
-                    filtroSeccionLista === "todas" ? "#6B1E3C" : "#fff",
-                  color: filtroSeccionLista === "todas" ? "#fff" : "#2b2320",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Todas las secciones
-              </button>
-              {SECCIONES_DISPONIBLES.map((sec) => (
-                <button
-                  key={sec.id}
-                  type="button"
-                  onClick={() => setFiltroSeccionLista(sec.id)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 20,
-                    border: `1px solid ${
-                      filtroSeccionLista === sec.id ? "#6B1E3C" : "#ddd"
-                    }`,
-                    background:
-                      filtroSeccionLista === sec.id ? "#6B1E3C" : "#fff",
-                    color: filtroSeccionLista === sec.id ? "#fff" : "#2b2320",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {sec.label}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ marginBottom: 14 }}>
-              <select
-                value={ordenLista}
-                onChange={(e) => setOrdenLista(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #ccc",
-                  fontSize: 13,
-                  background: "#fff",
-                }}
-              >
-                <option value="nuevos">Más nuevos primero</option>
-                <option value="precio_asc">Precio: menor a mayor</option>
-                <option value="precio_desc">Precio: mayor a menor</option>
-                <option value="codigo">Ordenar por Código</option>
-                <option value="nombre">Ordenar alfabéticamente (A-Z)</option>
-              </select>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1865,9 +1853,9 @@ export default function Admin() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: "2fr 1fr",
                 gap: 10,
-                marginBottom: 14,
+                marginBottom: 10,
               }}
             >
               <div>
@@ -1924,53 +1912,40 @@ export default function Admin() {
                       idsSeleccionados.length > 0 ? "pointer" : "not-allowed",
                   }}
                 >
-                  Bajar ({idsSeleccionados.length}/9)
+                  📸 Bajar ({idsSeleccionados.length}/9)
                 </button>
-                {/* 1. TÍTULO DEL FLYER Y BOTÓN DESCARGAR */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 10,
-                    marginBottom: 10, // Le bajé un poco el margen para pegar el checkbox abajo
-                  }}
-                >
-                  {/* ... (inputs y botón Bajar) ... */}
-                </div>
-
-                {/* 👇 CHECKBOX PARA FLYER GRUPAL 👇 */}
-                <div
-                  style={{
-                    marginBottom: 14,
-                    background: "#fdf8f4",
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "1px solid #d4af37",
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "#9a7b1e",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={mostrarEtiquetaNuevo}
-                      onChange={(e) =>
-                        setMostrarEtiquetaNuevo(e.target.checked)
-                      }
-                      style={{ width: 16, height: 16, accentColor: "#d4af37" }}
-                    />
-                    ✨ Agregar etiqueta "Nuevos Ingresos" en la foto
-                  </label>
-                </div>
               </div>
+            </div>
+
+            {/* 👇 CHECKBOX PARA FLYER GRUPAL 👇 */}
+            <div
+              style={{
+                marginBottom: 14,
+                background: "#fdf8f4",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid #d4af37",
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#9a7b1e",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={mostrarEtiquetaNuevo}
+                  onChange={(e) => setMostrarEtiquetaNuevo(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: "#d4af37" }}
+                />
+                ✨ Agregar etiqueta "Nuevos Ingresos" en la foto
+              </label>
             </div>
 
             {/* 2. RESUMEN FLOTANTE DE PRODUCTOS SELECCIONADOS */}
@@ -2111,10 +2086,9 @@ export default function Admin() {
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap" /* 👇 Chau scroll, hola salto de línea 👇 */,
                   gap: 6,
                   marginBottom: 8,
-                  overflowX: "auto",
-                  paddingBottom: 4,
                 }}
               >
                 <span
@@ -2140,7 +2114,6 @@ export default function Admin() {
                       filtroSeccionFlyer === "todas" ? "#6B1E3C" : "#fff",
                     color: filtroSeccionFlyer === "todas" ? "#fff" : "#333",
                     fontSize: 12,
-                    whiteSpace: "nowrap",
                   }}
                 >
                   Todas
@@ -2158,7 +2131,6 @@ export default function Admin() {
                         filtroSeccionFlyer === sec.id ? "#6B1E3C" : "#fff",
                       color: filtroSeccionFlyer === sec.id ? "#fff" : "#333",
                       fontSize: 12,
-                      whiteSpace: "nowrap",
                     }}
                   >
                     {sec.label}
@@ -2170,9 +2142,8 @@ export default function Admin() {
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap" /* 👇 Chau scroll, hola salto de línea 👇 */,
                   gap: 6,
-                  overflowX: "auto",
-                  paddingBottom: 4,
                 }}
               >
                 <span
@@ -2198,7 +2169,6 @@ export default function Admin() {
                       filtroTipoFlyer === "todos" ? "#6B1E3C" : "#fff",
                     color: filtroTipoFlyer === "todos" ? "#fff" : "#333",
                     fontSize: 12,
-                    whiteSpace: "nowrap",
                   }}
                 >
                   Todos
@@ -2216,7 +2186,6 @@ export default function Admin() {
                         filtroTipoFlyer === t.value ? "#6B1E3C" : "#fff",
                       color: filtroTipoFlyer === t.value ? "#fff" : "#333",
                       fontSize: 12,
-                      whiteSpace: "nowrap",
                     }}
                   >
                     {t.label}
