@@ -200,6 +200,7 @@ export default function Admin() {
   // ESTADOS PARA EL GENERADOR DE FLYERS CUSTOM
   const [tituloFlyerCustom, setTituloFlyerCustom] = useState("PRODUCTOS");
   const [idsSeleccionados, setIdsSeleccionados] = useState([]);
+  const [mostrarEtiquetaNuevo, setMostrarEtiquetaNuevo] = useState(false);
 
   // 👇 NUEVOS ESTADOS CON FILTRO DE TIPO AGREGADO
   const [busquedaFlyer, setBusquedaFlyer] = useState("");
@@ -1320,62 +1321,46 @@ export default function Admin() {
 
         {tabActiva === "lista" && (
           <div>
-            {/* 👇 3. BOTONERA PARA CREAR FLYERS GRUPALES */}
+            <div style={{ marginBottom: 14 }}>
+              <select
+                value={ordenLista}
+                onChange={(e) => setOrdenLista(e.target.value)}
+                // ... (estilos del select)
+              >
+                {/* ... opciones ... */}
+              </select>
+            </div>
+
+            {/* 👇 CHECKBOX PARA FLYER INDIVIDUAL 👇 */}
             <div
               style={{
-                background: "#fff",
-                padding: "12px 14px",
-                borderRadius: 10,
-                border: "1px solid #ebd9c8",
                 marginBottom: 14,
+                background: "#fdf8f4",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid #d4af37",
               }}
             >
-              <h3
-                style={{ margin: "0 0 10px 0", fontSize: 13, color: "#6B1E3C" }}
-              >
-                Flyer por Categoría (Toma hasta 9)
-              </h3>
-              <div
+              <label
                 style={{
                   display: "flex",
+                  alignItems: "center",
                   gap: 8,
-                  overflowX: "auto",
-                  paddingBottom: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#9a7b1e",
+                  cursor: "pointer",
                 }}
               >
-                {TODOS_LOS_TIPOS.map((t) => (
-                  <button
-                    key={t.value}
-                    type="button"
-                    onClick={() => {
-                      // 👇 CAMBIA EL .slice(0, 6) a .slice(0, 9)
-                      const prods = perfumes
-                        .filter((p) => p.tipo === t.value)
-                        .slice(0, 9);
-                      if (prods.length === 0)
-                        return alert(
-                          `No hay ${t.label} cargados en el sistema.`,
-                        );
-                      setListaCaptura({ titulo: t.label, productos: prods });
-                    }}
-                    style={{
-                      padding: "8px 14px",
-                      borderRadius: 20,
-                      border: "1px solid #d4af37",
-                      background: "#fdf8f4",
-                      color: "#9a7b1e",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      whiteSpace: "nowrap",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Flyer de {t.label}
-                  </button>
-                ))}
-              </div>
+                <input
+                  type="checkbox"
+                  checked={mostrarEtiquetaNuevo}
+                  onChange={(e) => setMostrarEtiquetaNuevo(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: "#d4af37" }}
+                />
+                ✨ Agregar etiqueta "Nuevo Ingreso" al descargar flyer
+              </label>
             </div>
-            {/* FIN BOTONERA GRUPAL */}
             <input
               type="text"
               placeholder="Buscar por nombre, código o marca…"
@@ -1939,8 +1924,52 @@ export default function Admin() {
                       idsSeleccionados.length > 0 ? "pointer" : "not-allowed",
                   }}
                 >
-                  📸 Bajar ({idsSeleccionados.length}/9)
+                  Bajar ({idsSeleccionados.length}/9)
                 </button>
+                {/* 1. TÍTULO DEL FLYER Y BOTÓN DESCARGAR */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 10,
+                    marginBottom: 10, // Le bajé un poco el margen para pegar el checkbox abajo
+                  }}
+                >
+                  {/* ... (inputs y botón Bajar) ... */}
+                </div>
+
+                {/* 👇 CHECKBOX PARA FLYER GRUPAL 👇 */}
+                <div
+                  style={{
+                    marginBottom: 14,
+                    background: "#fdf8f4",
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #d4af37",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#9a7b1e",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={mostrarEtiquetaNuevo}
+                      onChange={(e) =>
+                        setMostrarEtiquetaNuevo(e.target.checked)
+                      }
+                      style={{ width: 16, height: 16, accentColor: "#d4af37" }}
+                    />
+                    ✨ Agregar etiqueta "Nuevos Ingresos" en la foto
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -2342,22 +2371,62 @@ export default function Admin() {
                 fontFamily: "system-ui, -apple-system, sans-serif",
               }}
             >
-              {/* Imagen (ocupa automáticamente todo el espacio superior disponible) */}
-              {productoCaptura.fotos && productoCaptura.fotos[0] ? (
-                <img
-                  src={productoCaptura.fotos[0]}
-                  crossOrigin="anonymous"
-                  style={{
-                    width: "100%",
-                    flex: 1,
-                    objectFit: "cover",
-                    minHeight: 0,
-                  }}
-                  alt="producto"
-                />
-              ) : (
-                <div style={{ width: "100%", flex: 1, background: "#333" }} />
-              )}
+              {/* Imagen y Etiqueta Nuevo Ingreso */}
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  flex: 1,
+                  minHeight: 0,
+                  display: "flex",
+                }}
+              >
+                {productoCaptura.fotos && productoCaptura.fotos[0] ? (
+                  <img
+                    src={productoCaptura.fotos[0]}
+                    crossOrigin="anonymous"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                    alt="producto"
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      background: "#333",
+                    }}
+                  />
+                )}
+
+                {/* 🌟 ETIQUETA ATRACTIVA "NUEVO INGRESO" 🌟 */}
+                {mostrarEtiquetaNuevo && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "32px",
+                      left: "0",
+                      background:
+                        "linear-gradient(90deg, #d4af37 0%, #f3e5ab 100%)",
+                      color: "#151515",
+                      padding: "12px 28px",
+                      fontWeight: "900",
+                      fontSize: "24px",
+                      fontFamily: "system-ui, sans-serif",
+                      letterSpacing: "1px",
+                      textTransform: "uppercase",
+                      borderTopRightRadius: "30px",
+                      borderBottomRightRadius: "30px",
+                      boxShadow: "0 6px 15px rgba(0,0,0,0.6)",
+                    }}
+                  >
+                    ✨ Nuevo Ingreso
+                  </div>
+                )}
+              </div>
 
               {/* Textos del producto con tipografía un poco más grande para este tamaño */}
               <div style={{ padding: "36px 40px", backgroundColor: "#151515" }}>
@@ -2464,9 +2533,31 @@ export default function Admin() {
                 >
                   {/* Encabezado */}
                   <div style={{ textAlign: "center", marginBottom: "16px" }}>
+                    {/* 🌟 ETIQUETA ATRACTIVA GRUPAL 🌟 */}
+                    {mostrarEtiquetaNuevo && (
+                      <div
+                        style={{
+                          display: "inline-block",
+                          background:
+                            "linear-gradient(90deg, #d4af37 0%, #f3e5ab 100%)",
+                          color: "#151515",
+                          padding: "6px 24px",
+                          borderRadius: "30px",
+                          fontSize: "15px",
+                          fontWeight: "900",
+                          letterSpacing: "2px",
+                          textTransform: "uppercase",
+                          marginBottom: "12px",
+                          boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+                        }}
+                      >
+                        ✨ Nuevos Ingresos ✨
+                      </div>
+                    )}
+
                     <h2
                       style={{
-                        color: "#d4af37",
+                        color: "#ffffff",
                         fontSize: "36px",
                         margin: "0 0 4px 0",
                         fontFamily: "serif",
@@ -2476,9 +2567,6 @@ export default function Admin() {
                     >
                       {listaCaptura.titulo}
                     </h2>
-                    <p style={{ color: "#888", margin: 0, fontSize: "14px" }}>
-                      Disponibles en el catálogo
-                    </p>
                   </div>
 
                   {/* Grilla Dinámica */}
