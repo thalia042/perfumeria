@@ -197,72 +197,52 @@ export default function Admin() {
   // ==========================================
   const [productoCaptura, setProductoCaptura] = useState(null);
   const [listaCaptura, setListaCaptura] = useState(null);
+  // ESTADOS PARA EL GENERADOR DE FLYERS CUSTOM
+  const [tituloFlyerCustom, setTituloFlyerCustom] = useState("PRODUCTOS");
+  const [idsSeleccionados, setIdsSeleccionados] = useState([]);
 
-  // ==========================================
-  // 2. EFECTO PARA EL FLYER INDIVIDUAL
-  // ==========================================
-  useEffect(() => {
-    if (productoCaptura) {
-      const generarImagen = async () => {
-        const elemento = document.getElementById("flyer-export");
-        if (elemento) {
-          setTimeout(async () => {
-            try {
-              const canvas = await html2canvas(elemento, {
-                useCORS: true,
-                scale: 2,
-                backgroundColor: "#121212",
-              });
-              const dataUrl = canvas.toDataURL("image/png");
-              const enlace = document.createElement("a");
-              enlace.href = dataUrl;
-              enlace.download = `${productoCaptura.codigo || "Flyer"}-${productoCaptura.nombre}.png`;
-              enlace.click();
-            } catch (err) {
-              console.error("Error al generar imagen:", err);
-              alert("Error al generar la imagen.");
-            } finally {
-              setProductoCaptura(null);
-            }
-          }, 500);
-        }
-      };
-      generarImagen();
-    }
-  }, [productoCaptura]); // <-- AQUÍ SE CIERRA EL PRIMER EFECTO CORRECTAMENTE
+  // 👇 NUEVOS ESTADOS CON FILTRO DE TIPO AGREGADO
+  const [busquedaFlyer, setBusquedaFlyer] = useState("");
+  const [filtroSeccionFlyer, setFiltroSeccionFlyer] = useState("todas");
+  const [filtroTipoFlyer, setFiltroTipoFlyer] = useState("todos"); // <-- NUEVO
+  const [limiteFlyer, setLimiteFlyer] = useState(12);
 
-  // ==========================================
-  // 3. EFECTO PARA EL FLYER GRUPAL (CATEGORÍAS)
-  // ==========================================
+  // Reiniciar el límite a 12 al buscar o cambiar filtros
   useEffect(() => {
-    if (listaCaptura) {
-      const generarImagen = async () => {
-        const elemento = document.getElementById("flyer-lista-export");
-        if (elemento) {
-          setTimeout(async () => {
-            try {
-              const canvas = await html2canvas(elemento, {
-                useCORS: true,
-                scale: 2,
-                backgroundColor: "#000000",
-              });
-              const dataUrl = canvas.toDataURL("image/png");
-              const enlace = document.createElement("a");
-              enlace.href = dataUrl;
-              enlace.download = `Flyer-${listaCaptura.titulo}.png`;
-              enlace.click();
-            } catch (err) {
-              console.error("Error al generar imagen de lista:", err);
-              alert("Error al generar el flyer.");
-            } finally {
-              setListaCaptura(null);
-            }
-          }, 1200);
-        }
-      };
-      generarImagen();
-    }
-  }, [listaCaptura]); // <-- AQUÍ SE CIERRA EL SEGUNDO EFECTO CORRECTAMENTE
+    setLimiteFlyer(12);
+  }, [busquedaFlyer, filtroSeccionFlyer, filtroTipoFlyer]);
+
+  // Productos filtrados para el buscador (súper rápido)
+  const productosFlyerFiltrados = useMemo(() => {
+    return perfumes.filter((p) => {
+      // Filtro 1: Sección
+      const secs =
+        p.secciones && p.secciones.length > 0 ? p.secciones : ["perfumeria"];
+      if (filtroSeccionFlyer !== "todas" && !secs.includes(filtroSeccionFlyer))
+        return false;
+
+      // Filtro 2: Tipo (Cremas, Jabones, etc)
+      if (
+        filtroTipoFlyer !== "todos" &&
+        (p.tipo || "perfume") !== filtroTipoFlyer
+      )
+        return false;
+
+      // Filtro 3: Búsqueda escrita
+      if (!busquedaFlyer.trim()) return true;
+      const q = normalizarTexto(busquedaFlyer);
+      return (
+        normalizarTexto(p.nombre).includes(q) ||
+        normalizarTexto(p.marca).includes(q) ||
+        normalizarTexto(p.codigo).includes(q)
+      );
+    });
+  }, [perfumes, filtroSeccionFlyer, filtroTipoFlyer, busquedaFlyer]);
+
+  // Solo renderizamos los primeros 12 (o el límite activo)
+  const productosFlyerVisibles = useMemo(() => {
+    return productosFlyerFiltrados.slice(0, limiteFlyer);
+  }, [productosFlyerFiltrados, limiteFlyer]);
 
   const siguienteCodigo = useMemo(
     () => calcularSiguienteCodigo(perfumes),
@@ -695,6 +675,24 @@ export default function Admin() {
             }}
           >
             Portadas
+          </button>
+          {/* 👇 NUEVA PESTAÑA */}
+          <button
+            type="button"
+            onClick={() => setTabActiva("flyers")}
+            style={{
+              padding: "14px 4px",
+              border: "none",
+              background: "none",
+              fontSize: 13,
+              fontWeight: 600,
+              color: tabActiva === "flyers" ? "#6B1E3C" : "#777",
+              borderBottom:
+                tabActiva === "flyers" ? "3px solid #6B1E3C" : "none",
+              cursor: "pointer",
+            }}
+          >
+            Flyer
           </button>
         </div>
       </div>
@@ -1810,113 +1808,460 @@ export default function Admin() {
             </div>
           </div>
         )}
-      </div>
-      {/* PESTAÑA 4: CAMBIAR FOTOS DE LAS PORTADAS */}
-      {tabActiva === "portadas" && (
-        <div
-          style={{
-            background: "#fff",
-            padding: 16,
-            borderRadius: 10,
-            border: "1px solid #ebd9c8",
-          }}
-        >
-          <h3 style={{ margin: "0 0 10px 0", fontSize: 16 }}>
-            Fotos de portada de las secciones
-          </h3>
-          <p style={{ fontSize: 13, color: "#666", marginBottom: 18 }}>
-            Subí fotos representativas para los 4 bloques principales. Se
-            comprimen solas antes de guardarse.
-          </p>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {SECCIONES_DISPONIBLES.map((sec) => {
-              const imgActual = imagenesSecciones[sec.id];
-              const estaSubiendo = subiendoPortada === sec.id;
+        {/* PESTAÑA 5: ARMAR FLYER PERSONALIZADO (OPTIMIZADO CON FILTRO DOBLE) */}
+        {tabActiva === "flyers" && (
+          <div
+            style={{
+              background: "#fff",
+              padding: 16,
+              borderRadius: 10,
+              border: "1px solid #ebd9c8",
+            }}
+          >
+            <h3 style={{ margin: "0 0 6px 0", fontSize: 16 }}>
+              Armar Flyer Personalizado
+            </h3>
+            <p style={{ fontSize: 13, color: "#666", marginBottom: 14 }}>
+              Buscá y seleccioná hasta 9 productos. El diseño se adaptará solo.
+            </p>
 
-              return (
-                <div
-                  key={sec.id}
+            {/* 1. TÍTULO DEL FLYER Y BOTÓN DESCARGAR */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+                marginBottom: 14,
+              }}
+            >
+              <div>
+                <label
                   style={{
-                    border: "1px solid #ebd9c8",
-                    borderRadius: 8,
-                    padding: 12,
-                    display: "flex",
-                    gap: 12,
-                    alignItems: "center",
+                    display: "block",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    marginBottom: 4,
                   }}
                 >
-                  {imgActual ? (
-                    <img
-                      src={imgActual}
-                      alt={sec.label}
-                      style={{
-                        width: 75,
-                        height: 75,
-                        borderRadius: 8,
-                        objectFit: "cover",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: 75,
-                        height: 75,
-                        borderRadius: 8,
-                        background: "#f0ece7",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 11,
-                        color: "#999",
-                      }}
-                    >
-                      Sin foto
-                    </div>
-                  )}
+                  Título en la foto
+                </label>
+                <input
+                  type="text"
+                  value={tituloFlyerCustom}
+                  onChange={(e) =>
+                    setTituloFlyerCustom(e.target.value.toUpperCase())
+                  }
+                  placeholder="Ej: CREMAS, JABONES..."
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: 6,
+                    border: "1px solid #ccc",
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button
+                  type="button"
+                  disabled={idsSeleccionados.length === 0}
+                  onClick={() => {
+                    const seleccionados = perfumes.filter((p) =>
+                      idsSeleccionados.includes(p.id),
+                    );
+                    setListaCaptura({
+                      titulo: tituloFlyerCustom || "PRODUCTOS",
+                      productos: seleccionados,
+                    });
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    background:
+                      idsSeleccionados.length > 0 ? "#6B1E3C" : "#ccc",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor:
+                      idsSeleccionados.length > 0 ? "pointer" : "not-allowed",
+                  }}
+                >
+                  📸 Bajar ({idsSeleccionados.length}/9)
+                </button>
+              </div>
+            </div>
 
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <strong
-                      style={{
-                        fontSize: 15,
-                        display: "block",
-                        marginBottom: 4,
-                      }}
-                    >
-                      {sec.label}
-                    </strong>
-                    <label
-                      style={{
-                        display: "inline-block",
-                        padding: "6px 12px",
-                        background: estaSubiendo ? "#eee" : "#f4ede6",
-                        color: "#6B1E3C",
-                        borderRadius: 6,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: estaSubiendo ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      {estaSubiendo ? "Subiendo…" : "Cambiar foto"}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        disabled={estaSubiendo}
-                        style={{ display: "none" }}
-                        onChange={(e) => {
-                          if (e.target.files?.[0]) {
-                            subirPortadaSeccion(sec.id, e.target.files[0]);
+            {/* 2. RESUMEN FLOTANTE DE PRODUCTOS SELECCIONADOS */}
+            {idsSeleccionados.length > 0 && (
+              <div
+                style={{
+                  background: "#fdf8f4",
+                  border: "1px solid #d4af37",
+                  borderRadius: 8,
+                  padding: 10,
+                  marginBottom: 14,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 6,
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 12, fontWeight: 700, color: "#9a7b1e" }}
+                  >
+                    Seleccionados ({idsSeleccionados.length} de 9):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIdsSeleccionados([])}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#d9534f",
+                      fontSize: 11,
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Vaciar lista
+                  </button>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    overflowX: "auto",
+                    paddingBottom: 4,
+                  }}
+                >
+                  {idsSeleccionados.map((id) => {
+                    const prod = perfumes.find((p) => p.id === id);
+                    if (!prod) return null;
+                    return (
+                      <div
+                        key={id}
+                        style={{ position: "relative", flexShrink: 0 }}
+                      >
+                        {prod.fotos && prod.fotos[0] ? (
+                          <img
+                            src={prod.fotos[0]}
+                            style={{
+                              width: 45,
+                              height: 45,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                            }}
+                            alt=""
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: 45,
+                              height: 45,
+                              background: "#ccc",
+                              borderRadius: 6,
+                            }}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setIdsSeleccionados(
+                              idsSeleccionados.filter((i) => i !== id),
+                            )
                           }
+                          style={{
+                            position: "absolute",
+                            top: -4,
+                            right: -4,
+                            background: "#d9534f",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "50%",
+                            width: 18,
+                            height: 18,
+                            fontSize: 10,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 3. FILTROS Y BUSCADOR RÁPIDO */}
+            <div
+              style={{
+                background: "#f8f8f8",
+                padding: 10,
+                borderRadius: 8,
+                border: "1px solid #eee",
+                marginBottom: 12,
+              }}
+            >
+              <input
+                type="text"
+                placeholder="Buscar por nombre, marca o código…"
+                value={busquedaFlyer}
+                onChange={(e) => setBusquedaFlyer(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: 10,
+                  borderRadius: 6,
+                  border: "1px solid #ccc",
+                  marginBottom: 10,
+                  fontSize: 14,
+                }}
+              />
+
+              {/* Fila 1: Filtro por Sección */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  marginBottom: 8,
+                  overflowX: "auto",
+                  paddingBottom: 4,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "bold",
+                    color: "#888",
+                    display: "flex",
+                    alignItems: "center",
+                    marginRight: 4,
+                  }}
+                >
+                  Marca:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFiltroSeccionFlyer("todas")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 14,
+                    border: `1px solid ${filtroSeccionFlyer === "todas" ? "#6B1E3C" : "#ddd"}`,
+                    background:
+                      filtroSeccionFlyer === "todas" ? "#6B1E3C" : "#fff",
+                    color: filtroSeccionFlyer === "todas" ? "#fff" : "#333",
+                    fontSize: 12,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Todas
+                </button>
+                {SECCIONES_DISPONIBLES.map((sec) => (
+                  <button
+                    key={sec.id}
+                    type="button"
+                    onClick={() => setFiltroSeccionFlyer(sec.id)}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 14,
+                      border: `1px solid ${filtroSeccionFlyer === sec.id ? "#6B1E3C" : "#ddd"}`,
+                      background:
+                        filtroSeccionFlyer === sec.id ? "#6B1E3C" : "#fff",
+                      color: filtroSeccionFlyer === sec.id ? "#fff" : "#333",
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {sec.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Fila 2: Filtro por Tipo */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  overflowX: "auto",
+                  paddingBottom: 4,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "bold",
+                    color: "#888",
+                    display: "flex",
+                    alignItems: "center",
+                    marginRight: 4,
+                  }}
+                >
+                  Tipo:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFiltroTipoFlyer("todos")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 14,
+                    border: `1px solid ${filtroTipoFlyer === "todos" ? "#6B1E3C" : "#ddd"}`,
+                    background:
+                      filtroTipoFlyer === "todos" ? "#6B1E3C" : "#fff",
+                    color: filtroTipoFlyer === "todos" ? "#fff" : "#333",
+                    fontSize: 12,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Todos
+                </button>
+                {TODOS_LOS_TIPOS.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setFiltroTipoFlyer(t.value)}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 14,
+                      border: `1px solid ${filtroTipoFlyer === t.value ? "#6B1E3C" : "#ddd"}`,
+                      background:
+                        filtroTipoFlyer === t.value ? "#6B1E3C" : "#fff",
+                      color: filtroTipoFlyer === t.value ? "#fff" : "#333",
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. LISTA PAGINADA (MAX 12 POR TANDA) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {productosFlyerVisibles.map((p) => {
+                const checked = idsSeleccionados.includes(p.id);
+                return (
+                  <label
+                    key={p.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: `1.5px solid ${checked ? "#6B1E3C" : "#ebd9c8"}`,
+                      background: checked ? "#fdf8f4" : "#fff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        if (checked) {
+                          setIdsSeleccionados(
+                            idsSeleccionados.filter((id) => id !== p.id),
+                          );
+                        } else {
+                          if (idsSeleccionados.length >= 9)
+                            return alert("Máximo 9 productos por flyer.");
+                          setIdsSeleccionados([...idsSeleccionados, p.id]);
+                        }
+                      }}
+                      style={{ width: 18, height: 18, accentColor: "#6B1E3C" }}
+                    />
+                    {p.fotos && p.fotos[0] ? (
+                      <img
+                        src={p.fotos[0]}
+                        style={{
+                          width: 38,
+                          height: 38,
+                          objectFit: "cover",
+                          borderRadius: 6,
+                        }}
+                        alt=""
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 38,
+                          height: 38,
+                          background: "#eee",
+                          borderRadius: 6,
                         }}
                       />
-                    </label>
-                  </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {p.nombre}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#666" }}>
+                        {p.codigo ? `[${p.codigo}] ` : ""}
+                        {p.marca || "Sin marca"} ·{" "}
+                        {Number(p.precio) === 0 ? "Consultar" : `$${p.precio}`}
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+
+              {productosFlyerFiltrados.length === 0 && (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: 20,
+                    color: "#888",
+                    fontSize: 13,
+                  }}
+                >
+                  No se encontraron productos con ese filtro.
                 </div>
-              );
-            })}
+              )}
+
+              {/* BOTÓN VER MÁS PRODUCTOS */}
+              {limiteFlyer < productosFlyerFiltrados.length && (
+                <button
+                  type="button"
+                  onClick={() => setLimiteFlyer((prev) => prev + 12)}
+                  style={{
+                    width: "100%",
+                    padding: 10,
+                    marginTop: 6,
+                    background: "#f4ede6",
+                    color: "#6B1E3C",
+                    border: "1px solid #ebd9c8",
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  Ver más productos ({productosFlyerVisibles.length} de{" "}
+                  {productosFlyerFiltrados.length})
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       {/* ==================================================== */}
       {/* PLANTILLA OCULTA PARA DESCARGAR REDES SOCIALES       */}
       {/* ==================================================== */}
@@ -2028,156 +2373,189 @@ export default function Admin() {
       {/* FIN DE PLANTILLA OCULTA                              */}
       {/* ==================================================== */}
       {/* ==================================================== */}
-      {/* PLANTILLA OCULTA PARA FLYERS GRUPALES (CATEGORÍAS)   */}
+      {/* PLANTILLA OCULTA DINÁMICA (ADAPTABLE Y CORRIGE $0)   */}
       {/* ==================================================== */}
       {listaCaptura && (
         <div style={{ position: "fixed", left: "-9999px", top: 0 }}>
-          <div
-            id="flyer-lista-export"
-            style={{
-              width: "540px",
-              height: "960px",
-              backgroundColor: "#000000",
-              padding: "28px",
-              boxSizing: "border-box",
-              display: "flex",
-              flexDirection: "column",
-              fontFamily: "system-ui, -apple-system, sans-serif",
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: "#151515",
-                borderRadius: "24px",
-                padding: "30px 24px",
-                display: "flex",
-                flexDirection: "column",
-                width: "100%",
-                height: "100%",
-                boxSizing: "border-box",
-              }}
-            >
-              {/* Título de la Categoría */}
-              <div style={{ textAlign: "center", marginBottom: "24px" }}>
-                <h2
-                  style={{
-                    color: "#d4af37",
-                    fontSize: "38px",
-                    margin: "0 0 6px 0",
-                    fontFamily: "serif",
-                    letterSpacing: "3px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {listaCaptura.titulo}
-                </h2>
-                <p style={{ color: "#888", margin: 0, fontSize: "15px" }}>
-                  Disponibles en el catálogo
-                </p>
-              </div>
+          {(() => {
+            const cant = listaCaptura.productos.length;
 
-              {/* GRILLA ACTUALIZADA A 3 COLUMNAS Y PROPORCIÓN 5:7 */}
+            // Columnas según cantidad
+            let numCols = 3;
+            if (cant === 1) numCols = 1;
+            else if (cant <= 4) numCols = 2;
+
+            return (
               <div
+                id="flyer-lista-export"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
-                  gap: "16px 12px",
-                  flex: 1,
-                  alignContent: "start",
+                  width: "540px",
+                  height: "960px",
+                  backgroundColor: "#000000",
+                  padding: "28px",
+                  boxSizing: "border-box",
+                  display: "flex",
+                  flexDirection: "column",
+                  fontFamily: "system-ui, -apple-system, sans-serif",
                 }}
               >
-                {listaCaptura.productos.map((p) => {
-                  const clave = `${p.secciones?.[0] || "perfumeria"}:${p.tipo || "perfume"}`;
-                  const oculto = preciosOcultos.includes(clave);
-                  const precioTxt = oculto
-                    ? "Consultar"
-                    : `$${Number(p.precio).toLocaleString("es-AR")}`;
-
-                  return (
-                    <div
-                      key={p.id}
+                <div
+                  style={{
+                    backgroundColor: "#151515",
+                    borderRadius: "24px",
+                    padding: "30px 24px",
+                    display: "flex",
+                    flexDirection: "column",
+                    width: "100%",
+                    height: "100%",
+                    boxSizing: "border-box",
+                    justifyContent: "space-between", // Distribuye el espacio verticalmente
+                  }}
+                >
+                  {/* Encabezado */}
+                  <div style={{ textAlign: "center", marginBottom: "16px" }}>
+                    <h2
                       style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "6px",
+                        color: "#d4af37",
+                        fontSize: "36px",
+                        margin: "0 0 4px 0",
+                        fontFamily: "serif",
+                        letterSpacing: "3px",
+                        textTransform: "uppercase",
                       }}
                     >
-                      {p.fotos && p.fotos[0] ? (
-                        <img
-                          src={p.fotos[0]}
-                          crossOrigin="anonymous"
-                          style={{
-                            width: "100%",
-                            aspectRatio: "5/7",
-                            objectFit: "cover",
-                            borderRadius: "8px",
-                          }}
-                          alt={p.nombre}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: "100%",
-                            aspectRatio: "5/7",
-                            backgroundColor: "#333",
-                            borderRadius: "8px",
-                          }}
-                        />
-                      )}
-                      <div>
-                        <div
-                          style={{
-                            color: "#fff",
-                            fontSize: "13px",
-                            fontWeight: "600",
-                            lineHeight: "1.2",
-                            marginBottom: "2px",
-                            overflow: "hidden",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                          }}
-                        >
-                          {p.nombre}
-                        </div>
-                        <div
-                          style={{
-                            color: "#d4af37",
-                            fontSize: "14px",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          {precioTxt}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      {listaCaptura.titulo}
+                    </h2>
+                    <p style={{ color: "#888", margin: 0, fontSize: "14px" }}>
+                      Disponibles en el catálogo
+                    </p>
+                  </div>
 
-              {/* Pie de página de la imagen */}
-              <div
-                style={{
-                  textAlign: "center",
-                  marginTop: "auto",
-                  borderTop: "1px solid #333",
-                  paddingTop: "20px",
-                }}
-              >
-                <p
-                  style={{
-                    color: "#fff",
-                    margin: 0,
-                    fontSize: "18px",
-                    fontWeight: "500",
-                    letterSpacing: "1px",
-                  }}
-                >
-                  Consultanos por WhatsApp 💬
-                </p>
+                  {/* Grilla Dinámica */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `repeat(${numCols}, 1fr)`,
+                      gap: cant <= 4 ? "24px 20px" : "14px 10px",
+                      alignContent: "center",
+                      flex: 1,
+                      margin: "auto 0",
+                    }}
+                  >
+                    {listaCaptura.productos.map((p) => {
+                      const clave = `${p.secciones?.[0] || "perfumeria"}:${p.tipo || "perfume"}`;
+
+                      // 👇 CORRECCIÓN CLAVE: Si precio es 0 o está oculto en config
+                      const esOculto =
+                        Number(p.precio) === 0 ||
+                        preciosOcultos.includes(clave);
+                      const precioTxt = esOculto
+                        ? "Consultar precio"
+                        : `$${Number(p.precio).toLocaleString("es-AR")}`;
+
+                      return (
+                        <div
+                          key={p.id}
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "6px",
+                          }}
+                        >
+                          {p.fotos && p.fotos[0] ? (
+                            <img
+                              src={p.fotos[0]}
+                              crossOrigin="anonymous"
+                              style={{
+                                width: "100%",
+                                aspectRatio: "5/7",
+                                objectFit: "cover",
+                                borderRadius: "10px",
+                                maxHeight:
+                                  cant <= 2
+                                    ? "380px"
+                                    : cant <= 4
+                                      ? "260px"
+                                      : "160px",
+                              }}
+                              alt={p.nombre}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: "100%",
+                                aspectRatio: "5/7",
+                                backgroundColor: "#333",
+                                borderRadius: "10px",
+                              }}
+                            />
+                          )}
+                          <div>
+                            <div
+                              style={{
+                                color: "#fff",
+                                fontSize:
+                                  cant <= 2
+                                    ? "18px"
+                                    : cant <= 4
+                                      ? "15px"
+                                      : "12px",
+                                fontWeight: "600",
+                                lineHeight: "1.2",
+                                marginBottom: "2px",
+                                overflow: "hidden",
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                              }}
+                            >
+                              {p.nombre}
+                            </div>
+                            <div
+                              style={{
+                                color: "#d4af37",
+                                fontSize:
+                                  cant <= 2
+                                    ? "20px"
+                                    : cant <= 4
+                                      ? "16px"
+                                      : "13px",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {precioTxt}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Pie de página */}
+                  <div
+                    style={{
+                      textAlign: "center",
+                      borderTop: "1px solid #333",
+                      paddingTop: "16px",
+                      marginTop: "16px",
+                    }}
+                  >
+                    <p
+                      style={{
+                        color: "#fff",
+                        margin: 0,
+                        fontSize: "16px",
+                        fontWeight: "500",
+                        letterSpacing: "1px",
+                      }}
+                    >
+                      Consultanos por WhatsApp 💬
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       )}
     </div>
